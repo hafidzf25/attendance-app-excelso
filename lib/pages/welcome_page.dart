@@ -1,7 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
+import '../constants/colors.dart';
+import '../widgets/index.dart';
+import '../services/location_service.dart';
 
-class WelcomePage extends StatelessWidget {
+class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});
+
+  @override
+  State<WelcomePage> createState() => _WelcomePageState();
+}
+
+class _WelcomePageState extends State<WelcomePage> {
+  final LocationService _locationService = LocationService();
+
+  @override
+  void initState() {
+    super.initState();
+    // Request location saat app buka
+    _locationService.requestLocationPermissionAndGetLocation();
+  }
+
+  Future<void> _requestCameraPermission() async {
+    PermissionStatus status = await Permission.camera.request();
+    if (status.isDenied) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Permission camera ditolak')),
+      );
+    } else if (status.isGranted) {
+      // TODO: Buka camera atau lanjut ke halaman berikutnya
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Permission camera diizinkan')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -9,47 +41,42 @@ class WelcomePage extends StatelessWidget {
     final isTablet = width >= 600;
 
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: isTablet ? 24 : 16,
-                vertical: 24,
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.fact_check_outlined, size: 72),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Aplikasi Absensi',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Silakan lakukan absensi sesuai jadwal kerja Anda',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14),
-                  ),
-                  const SizedBox(height: 32),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        // NANTI arahkan ke Input NIK Page
-                        // Navigator.push(...)
-                      },
-                      child: const Text(
-                        'Mulai Absen',
-                        style: TextStyle(fontSize: 16),
+      appBar: AppBar(
+        backgroundColor: AppColors.primary,
+        title: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          child: Image.asset('assets/images/logo.png', height: 50),
+        ),
+        centerTitle: true,
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: AppColors.backgroundGradient,
+        ),
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isTablet ? 24 : 16,
+                  vertical: 24,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const WelcomeHeader(),
+                      const SizedBox(height: 48),
+                      CircularActionButton(
+                        onPressed: _requestCameraPermission,
+                        isTablet: isTablet,
                       ),
-                    ),
+                      const SizedBox(height: 48),
+                      const LocationInfo(),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
