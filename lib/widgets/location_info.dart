@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import '../constants/colors.dart';
 import '../services/location_service.dart';
 
@@ -60,6 +59,32 @@ class _LocationInfoState extends State<LocationInfo> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (_locationService.isMockLocation)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          border: Border.all(color: Colors.orange),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.warning, color: Colors.orange),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Lokasi tidak akurat (${_locationService.currentPosition!.accuracy.toStringAsFixed(2)}m)',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.orange,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     _buildLocationRow(
                       'Latitude',
                       _locationService.currentPosition!.latitude.toStringAsFixed(6),

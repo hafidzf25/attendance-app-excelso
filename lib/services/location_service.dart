@@ -14,10 +14,12 @@ class LocationService extends ChangeNotifier {
   Position? _currentPosition;
   String? _errorMessage;
   bool _isLoading = false;
+  bool _isMockLocation = false;
 
   Position? get currentPosition => _currentPosition;
   String? get errorMessage => _errorMessage;
   bool get isLoading => _isLoading;
+  bool get isMockLocation => _isMockLocation;
 
   /// Request location permission dan ambil lokasi
   /// Dipanggil saat app startup
@@ -87,6 +89,18 @@ class LocationService extends ChangeNotifier {
     _currentPosition = null;
     _errorMessage = null;
     _isLoading = false;
+    _isMockLocation = false;
     notifyListeners();
+  }
+
+  /// Cek apakah lokasi adalah mock/fake GPS
+  /// Fake GPS biasanya memiliki akurasi > 100 meter
+  bool checkIfMockLocation() {
+    if (_currentPosition == null) return false;
+
+    // Jika akurasi > 100 meter, indikasi mock location
+    _isMockLocation = _currentPosition!.accuracy > 100;
+    notifyListeners();
+    return _isMockLocation;
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'pages/welcome_page.dart';
+import 'pages/security_check_page.dart';
 
 void main() {
   runApp(const AttendanceApp());
@@ -10,9 +11,13 @@ class AttendanceApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: WelcomePage(),
+      home: const SecurityCheckPage(),
+      routes: {
+        '/welcome': (context) => const WelcomePage(),
+        '/security': (context) => const SecurityCheckPage(),
+      },
     );
   }
 }
