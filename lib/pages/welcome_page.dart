@@ -1,4 +1,5 @@
 import 'package:absence_excelso/pages/attendance_page.dart';
+import 'package:absence_excelso/services/location_service.dart';
 import 'package:flutter/material.dart';
 import '../constants/colors.dart';
 import '../widgets/index.dart';
@@ -11,26 +12,87 @@ class WelcomePage extends StatefulWidget {
 }
 
 class _WelcomePageState extends State<WelcomePage> {
-  @override
-  void initState() {
-    super.initState();
-    // Request location saat app buka
-    // _locationService.requestLocationPermissionAndGetLocation();
-  }
+  final LocationService _locationService = LocationService();
+  bool _isCheckingLocation = false;
 
-  // Future<void> _requestCameraPermission() async {
-  //   PermissionStatus status = await Permission.camera.request();
-  //   if (status.isDenied) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(content: Text('Permission camera ditolak')),
-  //     );
-  //   } else if (status.isGranted) {
-  //     // TODO: Buka camera atau lanjut ke halaman berikutnya
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(content: Text('Permission camera diizinkan')),
-  //     );
-  //   }
-  // }
+  Future<void> _handleAbsenPress() async {
+    if (_isCheckingLocation) return;
+
+    setState(() {
+      _isCheckingLocation = true;
+    });
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation(AppColors.primary),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Mengecek lokasi...',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Check location
+    final locationOk = await _locationService.getCurrentLocation();
+
+    if (!mounted) return;
+
+    // Close loading dialog
+    Navigator.pop(context);
+
+    if (locationOk) {
+      // Location OK, navigate to attendance page
+      setState(() {
+        _isCheckingLocation = false;
+      });
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const AttendancePage(),
+          ),
+        );
+      }
+    } else {
+      // Location failed, show error
+      setState(() {
+        _isCheckingLocation = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _locationService.errorMessage ??
+                  'Gagal mengakses lokasi. Silakan coba lagi.',
+            ),
+            backgroundColor: AppColors.danger,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,18 +133,9 @@ class _WelcomePageState extends State<WelcomePage> {
                       const WelcomeHeader(),
                       const SizedBox(height: 48),
                       CircularActionButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const AttendancePage(),
-                            ),
-                          );
-                        },
+                        onPressed: _isCheckingLocation ? null : () => _handleAbsenPress(),
                         isTablet: isTablet,
                       ),
-                      // const SizedBox(height: 48),
-                      // const LocationInfo(),
                     ],
                   ),
                 ),

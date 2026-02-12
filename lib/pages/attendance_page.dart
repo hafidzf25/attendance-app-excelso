@@ -1,5 +1,4 @@
 import 'package:absence_excelso/constants/colors.dart';
-import 'package:absence_excelso/services/index.dart';
 import 'package:absence_excelso/widgets/index.dart';
 import 'package:flutter/material.dart';
 
@@ -11,7 +10,6 @@ class AttendancePage extends StatefulWidget {
 }
 
 class _AttendancePageState extends State<AttendancePage> {
-  final LocationService _locationService = LocationService();
   bool _isPageInitialized = false;
 
   String _selectedOutlet = 'Outlet 1';
@@ -32,7 +30,11 @@ class _AttendancePageState extends State<AttendancePage> {
   }
 
   Future<void> _initializePage() async {
-    await _locationService.getCurrentLocation();
+    // Location sudah diambil dari welcome page (LocationService singleton)
+    // Jadi disini hanya perlu set initialized flag
+    // Bisa add minimal delay untuk UX yang lebih smooth
+    await Future.delayed(const Duration(milliseconds: 300));
+    
     if (mounted) {
       setState(() {
         _isPageInitialized = true;
