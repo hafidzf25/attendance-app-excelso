@@ -1,8 +1,8 @@
+import 'package:absence_excelso/pages/attendance_page.dart';
+import 'package:absence_excelso/services/location_service.dart';
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../constants/colors.dart';
 import '../widgets/index.dart';
-import '../services/location_service.dart';
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});
@@ -13,25 +13,84 @@ class WelcomePage extends StatefulWidget {
 
 class _WelcomePageState extends State<WelcomePage> {
   final LocationService _locationService = LocationService();
+  bool _isCheckingLocation = false;
 
-  @override
-  void initState() {
-    super.initState();
-    // Request location saat app buka
-    _locationService.requestLocationPermissionAndGetLocation();
-  }
+  Future<void> _handleAbsenPress() async {
+    if (_isCheckingLocation) return;
 
-  Future<void> _requestCameraPermission() async {
-    PermissionStatus status = await Permission.camera.request();
-    if (status.isDenied) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Permission camera ditolak')),
-      );
-    } else if (status.isGranted) {
-      // TODO: Buka camera atau lanjut ke halaman berikutnya
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Permission camera diizinkan')),
-      );
+    setState(() {
+      _isCheckingLocation = true;
+    });
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation(AppColors.primary),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Mengecek lokasi...',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Check location
+    final locationOk = await _locationService.getCurrentLocation();
+
+    if (!mounted) return;
+
+    // Close loading dialog
+    Navigator.pop(context);
+
+    if (locationOk) {
+      // Location OK, navigate to attendance page
+      setState(() {
+        _isCheckingLocation = false;
+      });
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const AttendancePage(),
+          ),
+        );
+      }
+    } else {
+      // Location failed, show error
+      setState(() {
+        _isCheckingLocation = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _locationService.errorMessage ??
+                  'Gagal mengakses lokasi. Silakan coba lagi.',
+            ),
+            backgroundColor: AppColors.danger,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     }
   }
 
@@ -45,14 +104,19 @@ class _WelcomePageState extends State<WelcomePage> {
         backgroundColor: AppColors.primary,
         title: Padding(
           padding: const EdgeInsets.symmetric(vertical: 18),
-          child: Image.asset('assets/images/logo.png', height: 50),
+          child: Text(
+            "Excelso Attendance",
+            style: TextStyle(
+              fontSize: isTablet ? 24 : 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
         ),
         centerTitle: true,
       ),
       body: Container(
-        decoration: BoxDecoration(
-          gradient: AppColors.backgroundGradient,
-        ),
+        decoration: BoxDecoration(gradient: AppColors.backgroundGradient),
         child: SafeArea(
           child: Center(
             child: ConstrainedBox(
@@ -69,11 +133,9 @@ class _WelcomePageState extends State<WelcomePage> {
                       const WelcomeHeader(),
                       const SizedBox(height: 48),
                       CircularActionButton(
-                        onPressed: _requestCameraPermission,
+                        onPressed: _isCheckingLocation ? null : () => _handleAbsenPress(),
                         isTablet: isTablet,
                       ),
-                      const SizedBox(height: 48),
-                      const LocationInfo(),
                     ],
                   ),
                 ),

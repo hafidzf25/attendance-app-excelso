@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import '../constants/colors.dart';
 import '../services/location_service.dart';
 
@@ -15,9 +14,6 @@ class _LocationInfoState extends State<LocationInfo> {
 
   Future<void> _refreshLocation() async {
     await _locationService.getCurrentLocation();
-    if (mounted) {
-      setState(() {});
-    }
   }
 
   @override

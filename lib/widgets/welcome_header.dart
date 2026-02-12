@@ -2,29 +2,43 @@ import 'package:flutter/material.dart';
 import '../constants/colors.dart';
 
 class WelcomeHeader extends StatelessWidget {
-  const WelcomeHeader({Key? key}) : super(key: key);
+  final String title;
+  final String subtitle;
+
+  const WelcomeHeader({
+    Key? key,
+    this.title = 'Excelso Attendance',
+    this.subtitle = 'Silakan lakukan absensi sesuai jadwal kerja Anda',
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: .center,
       children: [
-        // const Text(
-        //   'Excelso Attendance',
-        //   textAlign: TextAlign.center,
-        //   style: TextStyle(
-        //     fontSize: 28,
-        //     fontWeight: FontWeight.bold,
-        //     color: AppColors.textPrimary,
-        //   ),
-        // ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8.0),
-          child: const Text(
-            'Silakan lakukan absensi sesuai jadwal kerja Anda',
+          child: Text(
+            subtitle,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 16,
+            style: const TextStyle(
+              fontSize: 14,
               color: AppColors.textSecondary,
             ),
           ),

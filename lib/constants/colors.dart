@@ -4,6 +4,10 @@ class AppColors {
   // Primary color
   static const Color primary = Color(0xff003267);
   
+  // Status colors
+  static const Color success = Color(0xff22c55e);
+  static const Color danger = Color(0xffef4444);
+  
   // Gradients
   static const LinearGradient backgroundGradient = LinearGradient(
     begin: Alignment.topCenter,
