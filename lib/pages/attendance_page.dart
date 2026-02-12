@@ -1,4 +1,5 @@
 import 'package:absence_excelso/constants/colors.dart';
+import 'package:absence_excelso/pages/camera_page.dart';
 import 'package:absence_excelso/widgets/index.dart';
 import 'package:flutter/material.dart';
 
@@ -64,15 +65,29 @@ class _AttendancePageState extends State<AttendancePage> {
         setState(() {
           _selectedShift = selectedShift;
         });
-        _showSuccessSnackbar(actionType);
+        // Navigate to camera page after shift is selected
+        _navigateToCameraPage(actionType);
       }
     });
   }
 
-  void _showSuccessSnackbar(String actionType) {
+  Future<void> _navigateToCameraPage(String actionType) async {
+    final photoPath = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (context) => const CameraPage()),
+    );
+
+    if (photoPath != null && mounted) {
+      _showSuccessSnackbar(actionType, photoPath);
+    }
+  }
+
+  void _showSuccessSnackbar(String actionType, [String? photoPath]) {
+    final photoInfo = photoPath != null ? ' ✓' : '';
     final message = actionType == 'Check Out'
-        ? '$actionType: ${_nikController.text} - $_selectedOutlet'
-        : '$actionType: ${_nikController.text} - $_selectedOutlet - $_selectedShift';
+        ? '$actionType: ${_nikController.text} - $_selectedOutlet$photoInfo'
+        : '$actionType: ${_nikController.text} - $_selectedOutlet - $_selectedShift$photoInfo';
+    
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -80,13 +95,15 @@ class _AttendancePageState extends State<AttendancePage> {
         duration: const Duration(seconds: 3),
       ),
     );
+    
     final raw = {
       'action': actionType,
       'nik': _nikController.text,
       'outlet': _selectedOutlet,
       'shift': _selectedShift,
+      'photoPath': photoPath,
     };
-    print("Raw data: $raw");
+    print("Attendance data: $raw");
   }
 
   void _showErrorSnackbar(String message) {
@@ -111,7 +128,8 @@ class _AttendancePageState extends State<AttendancePage> {
       _showErrorSnackbar('Silakan isi NIK terlebih dahulu');
       return;
     }
-    _showSuccessSnackbar('Check Out');
+    // For check out, navigate directly to camera (no shift modal)
+    _navigateToCameraPage('Check Out');
   }
 
   @override
