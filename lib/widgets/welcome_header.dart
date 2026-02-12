@@ -14,15 +14,22 @@ class WelcomeHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: .center,
       children: [
-        Text(
-          title,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         Padding(
