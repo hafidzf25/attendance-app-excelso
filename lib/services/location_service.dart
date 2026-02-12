@@ -17,10 +17,12 @@ class LocationService extends ChangeNotifier {
   Position? _currentPosition;
   String? _errorMessage;
   bool _isLoading = false;
+  bool _isMockLocation = false;
 
   Position? get currentPosition => _currentPosition;
   String? get errorMessage => _errorMessage;
   bool get isLoading => _isLoading;
+  bool get isMockLocation => _isMockLocation;
 
   /// Request location permission dan ambil lokasi
   /// Dipanggil saat app startup
@@ -112,13 +114,25 @@ class LocationService extends ChangeNotifier {
   Future<bool> _getLocationAndUpdateUI() async {
     _isLoading = true;
     _errorMessage = null;
+    _isMockLocation = false;
     notifyListeners();
 
     try {
       final Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
+
+      // Check if location is mocked
+      if (position.isMocked) {
+        _isMockLocation = true;
+        _errorMessage = 'Mock Location terdeteksi. Silakan matikan GPS Mock di pengaturan.';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
       _currentPosition = position;
+      _isMockLocation = false;
       _isLoading = false;
       notifyListeners();
       return true;
@@ -135,6 +149,7 @@ class LocationService extends ChangeNotifier {
     _currentPosition = null;
     _errorMessage = null;
     _isLoading = false;
+    _isMockLocation = false;
     notifyListeners();
   }
 }
