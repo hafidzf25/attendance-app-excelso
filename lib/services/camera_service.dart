@@ -5,6 +5,8 @@ import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart' as pm;
 
+import '../utils/image_utils.dart';
+
 class CameraService extends ChangeNotifier {
   static final CameraService _instance = CameraService._internal();
 
@@ -91,9 +93,9 @@ class CameraService extends ChangeNotifier {
       // Capture photo
       final XFile photo = await _cameraController!.takePicture();
       
-      // Read image file
+      // Read and process image
       final imageBytes = await photo.readAsBytes();
-      var image = img.decodeImage(imageBytes);
+      var image = ImageUtils.decodeFromBytes(imageBytes);
       
       if (image == null) {
         _errorMessage = 'Error decoding image';
@@ -101,7 +103,7 @@ class CameraService extends ChangeNotifier {
       }
       
       // Flip horizontal untuk normalize front camera mirror effect
-      image = img.flipHorizontal(image);
+      image = ImageUtils.flipHorizontal(image);
       
       // Get external storage (public folder, bisa diakses galeri)
       final Directory? externalDir = await getExternalStorageDirectory();
@@ -126,7 +128,7 @@ class CameraService extends ChangeNotifier {
       
       // Save flipped image ke public folder
       final File savedFile = File(filePath);
-      await savedFile.writeAsBytes(img.encodeJpg(image));
+      await savedFile.writeAsBytes(ImageUtils.encodeToJpg(image!));
       
       return savedFile.path;
     } catch (e) {
