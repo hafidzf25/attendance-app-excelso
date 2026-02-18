@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
-import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart' as pm;
 
@@ -9,6 +8,10 @@ import '../utils/image_utils.dart';
 
 class CameraService extends ChangeNotifier {
   static final CameraService _instance = CameraService._internal();
+  
+  // Output image resolution constants
+  static const int OUTPUT_WIDTH = 480;
+  static const int OUTPUT_HEIGHT = 512;
 
   factory CameraService() {
     return _instance;
@@ -62,6 +65,8 @@ class CameraService extends ChangeNotifier {
       );
 
       // Initialize dengan front camera - enableAudio: false untuk tidak minta audio permission
+      // Note: Preview resolution ditentukan oleh ResolutionPreset.high
+      // Output image akan di-resize ke OUTPUT_WIDTH x OUTPUT_HEIGHT (480x512)
       _cameraController = CameraController(
         frontCamera,
         ResolutionPreset.high,
@@ -69,6 +74,10 @@ class CameraService extends ChangeNotifier {
       );
 
       await _cameraController!.initialize();
+      
+      // Disable flash
+      await _cameraController!.setFlashMode(FlashMode.off);
+      
       _isInitialized = true;
       _errorMessage = null;
       _safeNotifyListeners();
@@ -90,11 +99,26 @@ class CameraService extends ChangeNotifier {
         return null;
       }
 
+      // Safety check - ensure image stream is stopped
+      try {
+        await _cameraController!.stopImageStream();
+      } catch (e) {
+        debugPrint('Note: Could not stop image stream (may already be stopped): $e');
+      }
+
+      // Small delay to ensure resources are freed
+      await Future.delayed(const Duration(milliseconds: 100));
+
       // Capture photo
       final XFile photo = await _cameraController!.takePicture();
       
       // Read and process image
       final imageBytes = await photo.readAsBytes();
+      if (imageBytes.isEmpty) {
+        _errorMessage = 'Photo bytes empty';
+        return null;
+      }
+      
       var image = ImageUtils.decodeFromBytes(imageBytes);
       
       if (image == null) {
@@ -104,6 +128,15 @@ class CameraService extends ChangeNotifier {
       
       // Flip horizontal untuk normalize front camera mirror effect
       image = ImageUtils.flipHorizontal(image);
+      
+      // Fit & crop image ke resolusi 480x512 (no distortion)
+      // - Resize width ke 480 maintaining aspect ratio
+      // - Crop height ke 512 dari center/top
+      image = ImageUtils.fitAndCrop(image, OUTPUT_WIDTH, OUTPUT_HEIGHT);
+      if (image == null) {
+        _errorMessage = 'Error processing image';
+        return null;
+      }
       
       // Get external storage (public folder, bisa diakses galeri)
       final Directory? externalDir = await getExternalStorageDirectory();
@@ -128,12 +161,13 @@ class CameraService extends ChangeNotifier {
       
       // Save flipped image ke public folder
       final File savedFile = File(filePath);
-      await savedFile.writeAsBytes(ImageUtils.encodeToJpg(image!));
+      await savedFile.writeAsBytes(ImageUtils.encodeToJpg(image));
       
       return savedFile.path;
     } catch (e) {
       _errorMessage = 'Error capturing photo: $e';
       _safeNotifyListeners();
+      debugPrint('Capture photo error: $e');
       return null;
     }
   }
