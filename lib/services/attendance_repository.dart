@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/api_error.dart';
@@ -61,21 +62,20 @@ class AttendanceRepository {
 
   /// Submit attendance check-in
   Future<AttendanceRecord> checkIn({
-    required String userId,
     required String photoPath,
-    required double latitude,
-    required double longitude,
   }) async {
     try {
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(
+          photoPath,
+          filename: 'attendance.jpg',
+        ),
+      });
+
       final response = await _apiService.post<AttendanceRecord>(
-        '/attendance/check-in',
-        data: {
-          'user_id': userId,
-          'photo_path': photoPath,
-          'latitude': latitude,
-          'longitude': longitude,
-          'check_in_time': DateTime.now().toIso8601String(),
-        },
+        '/attendances',
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'),
         dataParser: (json) => AttendanceRecord.fromJson(json as Map<String, dynamic>),
       );
 

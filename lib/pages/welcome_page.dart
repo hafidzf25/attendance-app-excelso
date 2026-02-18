@@ -26,18 +26,19 @@ class _WelcomePageState extends State<WelcomePage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Center(
+      builder: (context) => const Center(
         child: Card(
+          color: Colors.white,
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const CircularProgressIndicator(
+                CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation(AppColors.primary),
                 ),
-                const SizedBox(height: 16),
-                const Text(
+                SizedBox(height: 16),
+                Text(
                   'Mengecek lokasi...',
                   style: TextStyle(
                     fontSize: 14,
@@ -116,7 +117,7 @@ class _WelcomePageState extends State<WelcomePage> {
         centerTitle: true,
       ),
       body: Container(
-        decoration: BoxDecoration(gradient: AppColors.backgroundGradient),
+        decoration: const BoxDecoration(gradient: AppColors.backgroundGradient),
         child: SafeArea(
           child: Center(
             child: ConstrainedBox(
@@ -133,7 +134,9 @@ class _WelcomePageState extends State<WelcomePage> {
                       const WelcomeHeader(),
                       const SizedBox(height: 48),
                       CircularActionButton(
-                        onPressed: _isCheckingLocation ? null : () => _handleAbsenPress(),
+                        onPressed: _isCheckingLocation
+                            ? null
+                            : () => _handleAbsenPress(),
                         isTablet: isTablet,
                       ),
                     ],

@@ -21,7 +21,7 @@ class ApiService {
   void _initializeDio() {
     _dio = Dio(
       BaseOptions(
-        baseUrl: 'https://api.example.com', // TODO: Replace dengan actual base URL
+        baseUrl: 'http://192.168.137.1:3000/hr',
         connectTimeout: const Duration(seconds: 15),
         receiveTimeout: const Duration(seconds: 15),
         contentType: Headers.jsonContentType,
@@ -137,6 +137,7 @@ class ApiService {
     String endpoint, {
     dynamic data,
     Map<String, dynamic>? queryParameters,
+    Options? options,
     T Function(dynamic)? dataParser,
   }) async {
     try {
@@ -144,6 +145,7 @@ class ApiService {
         endpoint,
         data: data,
         queryParameters: queryParameters,
+        options: options,
       );
 
       return ApiResponse<T>.fromJson(

@@ -1,5 +1,7 @@
 import 'package:absence_excelso/constants/colors.dart';
 import 'package:absence_excelso/pages/camera_page.dart';
+import 'package:absence_excelso/models/api_error.dart';
+import 'package:absence_excelso/services/attendance_repository.dart';
 import 'package:absence_excelso/widgets/index.dart';
 import 'package:flutter/material.dart';
 
@@ -12,13 +14,35 @@ class AttendancePage extends StatefulWidget {
 
 class _AttendancePageState extends State<AttendancePage> {
   bool _isPageInitialized = false;
+  bool _isSubmitting = false;
+
+  final AttendanceRepository _attendanceRepository = AttendanceRepository();
 
   String _selectedOutlet = 'Outlet 1';
   String? _selectedShift;
   final TextEditingController _nikController = TextEditingController();
 
-  final List<String> _outlets = ['Outlet 1', 'Outlet 2', 'Outlet 3'];
+  final List<String> _outlets = [
+    'Outlet 1',
+    'Outlet 2',
+    'Outlet 3',
+    'Outlet 4',
+    'Outlet 5',
+    'Outlet 6',
+    'Outlet 7',
+    'Outlet 8',
+    'Outlet 9',
+  ];
   final List<Map<String, String>> _shifts = [
+    {'time': '06:00 - 14:00', 'name': 'Shift Pagi'},
+    {'time': '14:00 - 22:00', 'name': 'Shift Sore'},
+    {'time': '22:00 - 06:00', 'name': 'Shift Malam'},
+    {'time': '06:00 - 14:00', 'name': 'Shift Pagi'},
+    {'time': '14:00 - 22:00', 'name': 'Shift Sore'},
+    {'time': '22:00 - 06:00', 'name': 'Shift Malam'},
+    {'time': '06:00 - 14:00', 'name': 'Shift Pagi'},
+    {'time': '14:00 - 22:00', 'name': 'Shift Sore'},
+    {'time': '22:00 - 06:00', 'name': 'Shift Malam'},
     {'time': '06:00 - 14:00', 'name': 'Shift Pagi'},
     {'time': '14:00 - 22:00', 'name': 'Shift Sore'},
     {'time': '22:00 - 06:00', 'name': 'Shift Malam'},
@@ -35,7 +59,7 @@ class _AttendancePageState extends State<AttendancePage> {
     // Jadi disini hanya perlu set initialized flag
     // Bisa add minimal delay untuk UX yang lebih smooth
     await Future.delayed(const Duration(milliseconds: 300));
-    
+
     if (mounted) {
       setState(() {
         _isPageInitialized = true;
@@ -78,7 +102,44 @@ class _AttendancePageState extends State<AttendancePage> {
     );
 
     if (photoPath != null && mounted) {
+      await _submitAttendance(actionType, photoPath);
+    }
+  }
+
+  Future<void> _submitAttendance(String actionType, String photoPath) async {
+    if (_isSubmitting) return;
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final userId = _nikController.text.trim();
+      if (actionType == 'Check In') {
+        await _attendanceRepository.checkIn(
+          photoPath: photoPath,
+        );
+      } else {
+        final today =
+            await _attendanceRepository.getTodayAttendance(userId: userId);
+        if (today == null) {
+          _showErrorSnackbar('Belum ada data check-in hari ini');
+          return;
+        }
+        await _attendanceRepository.checkOut(attendanceId: today.id);
+      }
+
       _showSuccessSnackbar(actionType, photoPath);
+    } on ApiError catch (e) {
+      _showErrorSnackbar(e.message);
+    } catch (e) {
+      _showErrorSnackbar('Gagal $actionType: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
     }
   }
 
@@ -87,7 +148,7 @@ class _AttendancePageState extends State<AttendancePage> {
     final message = actionType == 'Check Out'
         ? '$actionType: ${_nikController.text} - $_selectedOutlet$photoInfo'
         : '$actionType: ${_nikController.text} - $_selectedOutlet - $_selectedShift$photoInfo';
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -95,7 +156,7 @@ class _AttendancePageState extends State<AttendancePage> {
         duration: const Duration(seconds: 3),
       ),
     );
-    
+
     final raw = {
       'action': actionType,
       'nik': _nikController.text,
@@ -214,6 +275,7 @@ class _AttendancePageState extends State<AttendancePage> {
                 FormButtons(
                   onCheckIn: _handleCheckIn,
                   onCheckOut: _handleCheckOut,
+                  isLoading: _isSubmitting,
                   isTablet: isTablet,
                 ),
                 SizedBox(height: isTablet ? 28 : 24),
