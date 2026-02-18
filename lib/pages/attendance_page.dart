@@ -20,7 +20,7 @@ class _AttendancePageState extends State<AttendancePage> {
 
   String _selectedOutlet = 'Outlet 1';
   String? _selectedShift;
-  final TextEditingController _nikController = TextEditingController();
+  // final TextEditingController _nikController = TextEditingController();
 
   final List<String> _outlets = [
     'Outlet 1',
@@ -34,18 +34,15 @@ class _AttendancePageState extends State<AttendancePage> {
     'Outlet 9',
   ];
   final List<Map<String, String>> _shifts = [
-    {'time': '06:00 - 14:00', 'name': 'Shift Pagi'},
-    {'time': '14:00 - 22:00', 'name': 'Shift Sore'},
-    {'time': '22:00 - 06:00', 'name': 'Shift Malam'},
-    {'time': '06:00 - 14:00', 'name': 'Shift Pagi'},
-    {'time': '14:00 - 22:00', 'name': 'Shift Sore'},
-    {'time': '22:00 - 06:00', 'name': 'Shift Malam'},
-    {'time': '06:00 - 14:00', 'name': 'Shift Pagi'},
-    {'time': '14:00 - 22:00', 'name': 'Shift Sore'},
-    {'time': '22:00 - 06:00', 'name': 'Shift Malam'},
-    {'time': '06:00 - 14:00', 'name': 'Shift Pagi'},
-    {'time': '14:00 - 22:00', 'name': 'Shift Sore'},
-    {'time': '22:00 - 06:00', 'name': 'Shift Malam'},
+    {'time': '06:00 - 14:00', 'name': 'Shift 1'},
+    {'time': '14:00 - 22:00', 'name': 'Shift 2'},
+    {'time': '22:00 - 06:00', 'name': 'Shift 3'},
+    {'time': '06:00 - 14:00', 'name': 'Shift 4'},
+    {'time': '14:00 - 22:00', 'name': 'Shift 5'},
+    {'time': '22:00 - 06:00', 'name': 'Shift 6'},
+    {'time': '06:00 - 14:00', 'name': 'Shift 7'},
+    {'time': '14:00 - 22:00', 'name': 'Shift 8'},
+    {'time': '22:00 - 06:00', 'name': 'Shift 9'},
   ];
 
   @override
@@ -69,7 +66,7 @@ class _AttendancePageState extends State<AttendancePage> {
 
   @override
   void dispose() {
-    _nikController.dispose();
+    // _nikController.dispose();
     super.dispose();
   }
 
@@ -114,19 +111,19 @@ class _AttendancePageState extends State<AttendancePage> {
     });
 
     try {
-      final userId = _nikController.text.trim();
+      // final userId = _nikController.text.trim();
       if (actionType == 'Check In') {
         await _attendanceRepository.checkIn(
           photoPath: photoPath,
         );
       } else {
-        final today =
-            await _attendanceRepository.getTodayAttendance(userId: userId);
-        if (today == null) {
-          _showErrorSnackbar('Belum ada data check-in hari ini');
-          return;
-        }
-        await _attendanceRepository.checkOut(attendanceId: today.id);
+        // final today =
+        //     await _attendanceRepository.getTodayAttendance(userId: userId);
+        // if (today == null) {
+        //   _showErrorSnackbar('Belum ada data check-in hari ini');
+        //   return;
+        // }
+        // await _attendanceRepository.checkOut(attendanceId: today.id);
       }
 
       _showSuccessSnackbar(actionType, photoPath);
@@ -146,8 +143,10 @@ class _AttendancePageState extends State<AttendancePage> {
   void _showSuccessSnackbar(String actionType, [String? photoPath]) {
     final photoInfo = photoPath != null ? ' ✓' : '';
     final message = actionType == 'Check Out'
-        ? '$actionType: ${_nikController.text} - $_selectedOutlet$photoInfo'
-        : '$actionType: ${_nikController.text} - $_selectedOutlet - $_selectedShift$photoInfo';
+        // ? '$actionType: ${_nikController.text} - $_selectedOutlet$photoInfo'
+        // : '$actionType: ${_nikController.text} - $_selectedOutlet - $_selectedShift$photoInfo';
+        ? '$actionType - $_selectedOutlet$photoInfo'
+        : '$actionType - $_selectedOutlet - $_selectedShift$photoInfo';
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -159,7 +158,7 @@ class _AttendancePageState extends State<AttendancePage> {
 
     final raw = {
       'action': actionType,
-      'nik': _nikController.text,
+      // 'nik': _nikController.text,
       'outlet': _selectedOutlet,
       'shift': _selectedShift,
       'photoPath': photoPath,
@@ -177,18 +176,18 @@ class _AttendancePageState extends State<AttendancePage> {
   }
 
   void _handleCheckIn() {
-    if (_nikController.text.trim().isEmpty) {
-      _showErrorSnackbar('Silakan isi NIK terlebih dahulu');
-      return;
-    }
+    // if (_nikController.text.trim().isEmpty) {
+    //   _showErrorSnackbar('Silakan isi NIK terlebih dahulu');
+    //   return;
+    // }
     _showShiftModal('Check In');
   }
 
   void _handleCheckOut() {
-    if (_nikController.text.trim().isEmpty) {
-      _showErrorSnackbar('Silakan isi NIK terlebih dahulu');
-      return;
-    }
+    // if (_nikController.text.trim().isEmpty) {
+    //   _showErrorSnackbar('Silakan isi NIK terlebih dahulu');
+    //   return;
+    // }
     // For check out, navigate directly to camera (no shift modal)
     _navigateToCameraPage('Check Out');
   }
@@ -218,16 +217,16 @@ class _AttendancePageState extends State<AttendancePage> {
 
   Widget _buildLoadingState() {
     return Container(
-      decoration: BoxDecoration(gradient: AppColors.backgroundGradient),
-      child: Center(
+      decoration: const BoxDecoration(gradient: AppColors.backgroundGradient),
+      child: const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const CircularProgressIndicator(
+            CircularProgressIndicator(
               valueColor: AlwaysStoppedAnimation(AppColors.primary),
             ),
-            const SizedBox(height: 24),
-            const Text(
+            SizedBox(height: 24),
+            Text(
               'Mempersiapkan halaman presensi...',
               style: TextStyle(
                 fontSize: 14,
@@ -261,7 +260,7 @@ class _AttendancePageState extends State<AttendancePage> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                WelcomeHeader(
+                const WelcomeHeader(
                   title: 'Form Kehadiran',
                   subtitle: 'Silakan isi data untuk presensi',
                 ),
@@ -269,8 +268,8 @@ class _AttendancePageState extends State<AttendancePage> {
                 const ClockDisplay(),
                 SizedBox(height: isTablet ? 24 : 20),
                 _buildOutletDropdown(isTablet),
-                SizedBox(height: isTablet ? 24 : 20),
-                _buildNikTextField(isTablet),
+                // SizedBox(height: isTablet ? 24 : 20),
+                // _buildNikTextField(isTablet),
                 SizedBox(height: isTablet ? 28 : 24),
                 FormButtons(
                   onCheckIn: _handleCheckIn,
@@ -305,14 +304,14 @@ class _AttendancePageState extends State<AttendancePage> {
     );
   }
 
-  Widget _buildNikTextField(bool isTablet) {
-    return FormTextField(
-      label: 'Nomor Induk Karyawan (NIK)',
-      hintText: 'Masukkan NIK',
-      controller: _nikController,
-      prefixIcon: Icons.badge,
-      isTablet: isTablet,
-      keyboardType: TextInputType.number,
-    );
-  }
+  // Widget _buildNikTextField(bool isTablet) {
+  //   return FormTextField(
+  //     label: 'Nomor Induk Karyawan (NIK)',
+  //     hintText: 'Masukkan NIK',
+  //     controller: _nikController,
+  //     prefixIcon: Icons.badge,
+  //     isTablet: isTablet,
+  //     keyboardType: TextInputType.number,
+  //   );
+  // }
 }
