@@ -64,28 +64,76 @@ class CameraService extends ChangeNotifier {
         orElse: () => _cameras[0],
       );
 
-      // Initialize dengan front camera - enableAudio: false untuk tidak minta audio permission
-      // Note: Preview resolution ditentukan oleh ResolutionPreset.high
-      // Output image akan di-resize ke OUTPUT_WIDTH x OUTPUT_HEIGHT (480x512)
-      _cameraController = CameraController(
-        frontCamera,
+      // Try to initialize dengan fallback untuk resolution preset
+      // Beberapa device tidak support ResolutionPreset.high
+      // Fallback order: high → medium → low → veryLow (last resort)
+      final resolutionPresets = [
         ResolutionPreset.high,
-        enableAudio: false, // Gaada audio permission minta
-      );
+        ResolutionPreset.medium,
+        ResolutionPreset.low,
+      ];
 
-      await _cameraController!.initialize();
-      
-      // Disable flash
-      await _cameraController!.setFlashMode(FlashMode.off);
-      
-      _isInitialized = true;
-      _errorMessage = null;
+      String? lastError;
+      for (int i = 0; i < resolutionPresets.length; i++) {
+        final preset = resolutionPresets[i];
+        try {
+          debugPrint('Attempting camera initialization with preset: $preset');
+          
+          _cameraController = CameraController(
+            frontCamera,
+            preset,
+            enableAudio: false, // Gaada audio permission minta
+            imageFormatGroup: ImageFormatGroup.yuv420,
+          );
+
+          await _cameraController!.initialize();
+          
+          // Small delay untuk ensure initialization selesai
+          await Future.delayed(const Duration(milliseconds: 200));
+          
+          // Disable flash
+          try {
+            await _cameraController!.setFlashMode(FlashMode.off);
+          } catch (e) {
+            debugPrint('Warning: Could not disable flash: $e');
+          }
+          
+          _isInitialized = true;
+          _errorMessage = null;
+          _safeNotifyListeners();
+          debugPrint('✓ Camera initialized successfully with preset: $preset');
+          return true;
+        } catch (e) {
+          lastError = e.toString();
+          debugPrint('✗ Failed to initialize with preset $preset: $e');
+          
+          // Dispose controller dengan proper cleanup
+          try {
+            await _cameraController?.dispose();
+          } catch (disposeError) {
+            debugPrint('Error disposing controller: $disposeError');
+          }
+          _cameraController = null;
+          
+          // Jika bukan preset terakhir, lanjut ke next preset
+          if (i < resolutionPresets.length - 1) {
+            await Future.delayed(const Duration(milliseconds: 500));
+            continue;
+          }
+        }
+      }
+
+      // Jika semua preset gagal
+      _errorMessage = 'Tidak dapat menginisialisasi kamera. Device mungkin tidak kompatibel.';
+      _isInitialized = false;
       _safeNotifyListeners();
-      return true;
+      debugPrint('✗ All resolution presets failed. Last error: $lastError');
+      return false;
     } catch (e) {
       _errorMessage = 'Error initialize camera: $e';
       _isInitialized = false;
       _safeNotifyListeners();
+      debugPrint('✗ Critical error during camera initialization: $e');
       return false;
     }
   }

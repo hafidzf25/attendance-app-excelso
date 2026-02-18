@@ -1,10 +1,10 @@
 import 'package:absence_excelso/constants/colors.dart';
 import 'package:absence_excelso/pages/photo_review_page.dart';
 import 'package:absence_excelso/services/camera_service.dart';
+import 'package:absence_excelso/services/face_detection_service.dart';
 import 'package:absence_excelso/utils/image_utils.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 
@@ -17,10 +17,17 @@ class CameraPage extends StatefulWidget {
 
 class _CameraPageState extends State<CameraPage> {
   final CameraService _cameraService = CameraService();
+  final FaceDetectionService _faceDetectionService = FaceDetectionService();
+  
   bool _isLoading = true;
   Uint8List? _cropPreview;
   bool _isProcessing = false;
-  int _frameCounter = 0; // Frame counter untuk skip frames
+  int _frameCounter = 0;
+  
+  // Face detection state
+  bool _faceDetected = false;
+  int _faceQualityScore = 0;
+  String _faceStatus = 'Mendeteksi wajah...';
 
   @override
   void initState() {
@@ -29,13 +36,14 @@ class _CameraPageState extends State<CameraPage> {
   }
 
   Future<void> _initializeCamera() async {
+    await _faceDetectionService.initialize();
+    
     final success = await _cameraService.initializeCamera();
     if (mounted) {
       setState(() {
         _isLoading = false;
       });
       if (success) {
-        // Setup image stream for crop preview
         _setupCropPreview();
       } else {
         if (mounted) {
@@ -53,7 +61,6 @@ class _CameraPageState extends State<CameraPage> {
   void _setupCropPreview() {
     _cameraService.cameraController?.startImageStream((image) {
       _frameCounter++;
-      // Process only every 3rd frame untuk reduce CPU/memory usage
       if (_frameCounter % 3 == 0 && !_isProcessing) {
         _isProcessing = true;
         _processCropPreview(image).then((_) {
@@ -70,22 +77,47 @@ class _CameraPageState extends State<CameraPage> {
 
   Future<void> _processCropPreview(CameraImage image) async {
     try {
-      // Convert camera image to img.Image
+      final faces = await _faceDetectionService.detectFaces(image);
+      final hasValidFace = _faceDetectionService.hasValidFace(faces);
+      
+      if (mounted) {
+        int qualityScore = 0;
+        String statusText = 'Wajah tidak terdeteksi';
+        
+        if (hasValidFace) {
+          final bestFace = _faceDetectionService.getBestFace(faces);
+          if (bestFace != null) {
+            qualityScore = bestFace.getQualityScore(
+              MediaQuery.of(context).size.width,
+              MediaQuery.of(context).size.height,
+            );
+            
+            if (qualityScore >= 80) {
+              statusText = 'Sempurna! 😊';
+            } else if (qualityScore >= 60) {
+              statusText = 'Bagus, posisikan lebih baik';
+            } else {
+              statusText = 'Posisikan wajah di center';
+            }
+          }
+        }
+        
+        setState(() {
+          _faceDetected = hasValidFace;
+          _faceQualityScore = qualityScore;
+          _faceStatus = statusText;
+        });
+      }
+      
       final bytes = _concatenatePlanes(image);
       if (bytes.isEmpty) return;
       
       final decoded = img.decodeImage(bytes);
-      
       if (decoded != null && mounted) {
-        // Apply fitAndCrop to get preview
         final cropped = ImageUtils.fitAndCrop(decoded, 480, 512);
         if (cropped != null) {
-          // Resize untuk preview (480x512 → 240x256) untuk hemat memory
-          // Use ImageUtils.resize untuk consistency
           final previewResized = ImageUtils.resize(cropped, 240, 256);
-          
           if (previewResized != null) {
-            // Encode ke JPG dengan quality rendah (50 untuk hemat memory)
             final preview = ImageUtils.encodeToJpg(previewResized, 50);
             if (mounted) {
               setState(() {
@@ -96,30 +128,52 @@ class _CameraPageState extends State<CameraPage> {
         }
       }
       
-      // Clear bytes to prevent memory leak
-      bytes.clear();
     } catch (e) {
       debugPrint('Preview error: $e');
     }
   }
 
   Uint8List _concatenatePlanes(CameraImage image) {
-    final WriteBuffer allBytes = WriteBuffer();
+    final BytesBuilder allBytes = BytesBuilder(copy: false);
     for (final Plane plane in image.planes) {
-      allBytes.putUint8List(plane.bytes);
+      allBytes.add(plane.bytes);
     }
-    return allBytes.done().buffer.asUint8List();
+    return allBytes.toBytes();
   }
 
   Future<void> _capturePhoto() async {
+    if (!_faceDetected) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Posisikan wajah Anda untuk mengambil foto'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (_faceQualityScore < 50) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Kualitas wajah kurang baik. Posisikan lebih baik.'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+      return;
+    }
+
     try {
-      // CRITICAL: Stop image stream BEFORE taking picture to prevent race condition
-      // This prevents crash di Android camera framework
-      await _cameraService.cameraController?.stopImageStream();
+      final controller = _cameraService.cameraController;
+      if (controller != null && controller.value.isStreamingImages) {
+        await controller.stopImageStream();
+      }
       
       final photoPath = await _cameraService.capturePhoto();
       if (photoPath != null && mounted) {
-        // Navigate to photo review page
         final result = await Navigator.push<String>(
           context,
           MaterialPageRoute(
@@ -127,7 +181,6 @@ class _CameraPageState extends State<CameraPage> {
           ),
         );
         
-        // Return result to previous page (AttendancePage)
         if (result != null && mounted) {
           Navigator.pop(context, result);
         }
@@ -150,13 +203,22 @@ class _CameraPageState extends State<CameraPage> {
           ),
         );
       }
+    } finally {
+      final controller = _cameraService.cameraController;
+      if (mounted && controller != null && !controller.value.isStreamingImages) {
+        _setupCropPreview();
+      }
     }
   }
 
   @override
   void dispose() {
-    _cameraService.cameraController?.stopImageStream();
+    final controller = _cameraService.cameraController;
+    if (controller != null && controller.value.isStreamingImages) {
+      controller.stopImageStream();
+    }
     _cameraService.dispose();
+    _faceDetectionService.dispose();
     super.dispose();
   }
 
@@ -194,7 +256,7 @@ class _CameraPageState extends State<CameraPage> {
             ),
             const SizedBox(height: 24),
             const Text(
-              'Menginisialisasi kamera...',
+              'Menginisialisasi kamera dan face detection...',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.white,
@@ -208,8 +270,7 @@ class _CameraPageState extends State<CameraPage> {
   }
 
   Widget _buildCameraPreview(bool isTablet) {
-    if (_cameraService.cameraController == null ||
-        !_cameraService.isInitialized) {
+    if (_cameraService.cameraController == null || !_cameraService.isInitialized) {
       return Center(
         child: Text(
           _cameraService.errorMessage ?? 'Camera not available',
@@ -220,38 +281,31 @@ class _CameraPageState extends State<CameraPage> {
 
     return Stack(
       children: [
-        // Camera Preview (fill screen)
         CameraPreview(_cameraService.cameraController!),
-
-        // Overlay with instruction, frame guide, and buttons
         SafeArea(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Top instruction
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.black54,
+                    color: _faceDetected ? Colors.green.withOpacity(0.7) : Colors.black54,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Text(
-                    'Posisikan wajah di dalam frame',
-                    style: TextStyle(
+                  child: Text(
+                    _faceStatus,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ),
               
-              // Center frame guide - using AspectRatio for exact 480:512 match
               Expanded(
                 child: Center(
                   child: Padding(
@@ -260,14 +314,10 @@ class _CameraPageState extends State<CameraPage> {
                       aspectRatio: 480 / 512,
                       child: Stack(
                         children: [
-                          // Show crop preview if available (BRIGHT inside frame)
                           if (_cropPreview != null)
                             ClipRRect(
                               borderRadius: BorderRadius.circular(16),
-                              child: Image.memory(
-                                _cropPreview!,
-                                fit: BoxFit.cover,
-                              ),
+                              child: Image.memory(_cropPreview!, fit: BoxFit.cover),
                             )
                           else
                             Container(
@@ -276,11 +326,8 @@ class _CameraPageState extends State<CameraPage> {
                                 borderRadius: BorderRadius.circular(16),
                               ),
                             ),
-                          // Dark overlay OUTSIDE frame area
                           CustomPaint(
-                            painter: _OutsideFrameDarkenPainter(
-                              frameColor: AppColors.primary,
-                            ),
+                            painter: _OutsideFrameDarkenPainter(frameColor: AppColors.primary),
                             size: Size.infinite,
                           ),
                         ],
@@ -290,13 +337,43 @@ class _CameraPageState extends State<CameraPage> {
                 ),
               ),
               
-              // Bottom buttons
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                child: Column(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: _faceQualityScore / 100,
+                        minHeight: 8,
+                        backgroundColor: Colors.grey.withOpacity(0.3),
+                        valueColor: AlwaysStoppedAnimation(
+                          _faceDetected && _faceQualityScore >= 80
+                              ? Colors.green
+                              : _faceDetected && _faceQualityScore >= 60
+                                  ? Colors.orange
+                                  : Colors.red,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Kualitas Wajah: $_faceQualityScore/100',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Cancel button
                     ElevatedButton.icon(
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(Icons.close),
@@ -314,10 +391,11 @@ class _CameraPageState extends State<CameraPage> {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    // Capture button
                     FloatingActionButton.extended(
                       onPressed: _capturePhoto,
-                      backgroundColor: AppColors.success,
+                      backgroundColor: _faceDetected && _faceQualityScore >= 50
+                          ? AppColors.success
+                          : Colors.grey,
                       icon: const Icon(Icons.camera_alt),
                       label: const Text('Ambil Foto'),
                     ),
@@ -332,7 +410,6 @@ class _CameraPageState extends State<CameraPage> {
   }
 }
 
-/// Custom painter untuk draw dark overlay OUTSIDE frame area only
 class _OutsideFrameDarkenPainter extends CustomPainter {
   final Color frameColor;
 
@@ -340,27 +417,19 @@ class _OutsideFrameDarkenPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Full rect dan frame rect
     final frameRect = Rect.fromLTWH(0, 0, size.width, size.height);
     final frameRRect = RRect.fromRectAndRadius(frameRect, const Radius.circular(16));
 
-    // Create path untuk full rect
     final fullPath = Path()..addRect(frameRect);
-    
-    // Create path untuk frame (inside area)
     final framePath = Path()..addRRect(frameRRect);
-
-    // Get outside area only (full - frame)
     final outsidePath = Path.combine(PathOperation.difference, fullPath, framePath);
 
-    // Paint dark overlay ONLY on outside area
     final darkPaint = Paint()
       ..color = Colors.black54
       ..style = PaintingStyle.fill;
     
     canvas.drawPath(outsidePath, darkPaint);
 
-    // Draw frame border
     final borderPaint = Paint()
       ..color = frameColor
       ..style = PaintingStyle.stroke
