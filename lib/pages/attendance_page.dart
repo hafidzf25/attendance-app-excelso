@@ -1,6 +1,7 @@
 import 'package:absence_excelso/constants/colors.dart';
 import 'package:absence_excelso/pages/camera_page.dart';
 import 'package:absence_excelso/models/api_error.dart';
+import 'package:absence_excelso/pages/result_page.dart';
 import 'package:absence_excelso/services/attendance_repository.dart';
 import 'package:absence_excelso/widgets/index.dart';
 import 'package:flutter/material.dart';
@@ -112,8 +113,9 @@ class _AttendancePageState extends State<AttendancePage> {
 
     try {
       // final userId = _nikController.text.trim();
+      var data = AttendanceRecord();
       if (actionType == 'Check In') {
-        await _attendanceRepository.checkIn(
+        data = await _attendanceRepository.checkIn(
           photoPath: photoPath,
         );
       } else {
@@ -126,7 +128,15 @@ class _AttendancePageState extends State<AttendancePage> {
         // await _attendanceRepository.checkOut(attendanceId: today.id);
       }
 
+      debugPrint("data nya ni bos ${data.name}");
       _showSuccessSnackbar(actionType, photoPath);
+      Navigator.pushAndRemoveUntil(context, MaterialPageRoute(
+        builder: (context) {
+          return ResultPage(
+            attendanceRecord: data,
+          );
+        },
+      ), (route) => false);
     } on ApiError catch (e) {
       _showErrorSnackbar(e.message);
     } catch (e) {

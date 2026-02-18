@@ -6,52 +6,64 @@ import 'api_service.dart';
 
 /// Attendance model
 class AttendanceRecord {
-  final String id;
-  final String userId;
-  final DateTime checkInTime;
-  final DateTime? checkOutTime;
-  final String? photoPath;
-  final double? latitude;
-  final double? longitude;
-  final String status; // 'present', 'late', 'absent'
+  // final String id;
+  // final String userId;
+  final String? nik;
+  final String? name;
+  final double? similarity;
+  // final DateTime checkInTime;
+  // final DateTime? checkOutTime;
+  // final String? photoPath;
+  // final double? latitude;
+  // final double? longitude;
+  // final String status; // 'present', 'late', 'absent'
 
   AttendanceRecord({
-    required this.id,
-    required this.userId,
-    required this.checkInTime,
-    this.checkOutTime,
-    this.photoPath,
-    this.latitude,
-    this.longitude,
-    required this.status,
+    this.nik,
+    this.name,
+    this.similarity
+    // required this.id,
+    // required this.userId,
+    // required this.checkInTime,
+    // this.checkOutTime,
+    // this.photoPath,
+    // this.latitude,
+    // this.longitude,
+    // required this.status,
   });
 
   /// Convert ke JSON untuk API
   Map<String, dynamic> toJson() {
     return {
-      'user_id': userId,
-      'check_in_time': checkInTime.toIso8601String(),
-      'check_out_time': checkOutTime?.toIso8601String(),
-      'photo_path': photoPath,
-      'latitude': latitude,
-      'longitude': longitude,
-      'status': status,
+      // 'user_id': userId,
+      // 'check_in_time': checkInTime.toIso8601String(),
+      // 'check_out_time': checkOutTime?.toIso8601String(),
+      // 'photo_path': photoPath,
+      // 'latitude': latitude,
+      // 'longitude': longitude,
+      // 'status': status,
+      'nik': nik,
+      'name': name,
+      'similarity': similarity,
     };
   }
 
   /// Parse dari API response
   factory AttendanceRecord.fromJson(Map<String, dynamic> json) {
     return AttendanceRecord(
-      id: json['id'] as String,
-      userId: json['user_id'] as String,
-      checkInTime: DateTime.parse(json['check_in_time'] as String),
-      checkOutTime: json['check_out_time'] != null
-          ? DateTime.parse(json['check_out_time'] as String)
-          : null,
-      photoPath: json['photo_path'] as String?,
-      latitude: (json['latitude'] as num?)?.toDouble(),
-      longitude: (json['longitude'] as num?)?.toDouble(),
-      status: json['status'] as String,
+      // id: json['id'] as String,
+      // userId: json['user_id'] as String,
+      // checkInTime: DateTime.parse(json['check_in_time'] as String),
+      // checkOutTime: json['check_out_time'] != null
+      //     ? DateTime.parse(json['check_out_time'] as String)
+      //     : null,
+      // photoPath: json['photo_path'] as String?,
+      // latitude: (json['latitude'] as num?)?.toDouble(),
+      // longitude: (json['longitude'] as num?)?.toDouble(),
+      // status: json['status'] as String,
+      nik: json['nik'] as String,
+      name: json['name'] as String,
+      similarity: json['similarity'] as double?,
     );
   }
 }
@@ -76,8 +88,11 @@ class AttendanceRepository {
         '/attendances',
         data: formData,
         options: Options(contentType: 'multipart/form-data'),
-        dataParser: (json) => AttendanceRecord.fromJson(json as Map<String, dynamic>),
+        dataParser: (json) =>
+            AttendanceRecord.fromJson(json as Map<String, dynamic>),
       );
+
+      debugPrint("Checkin response: ${response.toString()}");
 
       if (!response.success || response.data == null) {
         throw ApiError(
@@ -85,7 +100,8 @@ class AttendanceRepository {
         );
       }
 
-      return response.data!;
+      // return response.message ?? 'Check-in successful'; // dummy, karena API belum siap, kita return message dulu
+      return response.data!; // rill
     } on ApiError {
       rethrow;
     } catch (e) {
@@ -106,7 +122,8 @@ class AttendanceRepository {
         data: {
           'check_out_time': DateTime.now().toIso8601String(),
         },
-        dataParser: (json) => AttendanceRecord.fromJson(json as Map<String, dynamic>),
+        dataParser: (json) =>
+            AttendanceRecord.fromJson(json as Map<String, dynamic>),
       );
 
       if (!response.success || response.data == null) {
@@ -134,7 +151,8 @@ class AttendanceRepository {
       final response = await _apiService.get<AttendanceRecord>(
         '/attendance/today',
         queryParameters: {'user_id': userId},
-        dataParser: (json) => AttendanceRecord.fromJson(json as Map<String, dynamic>),
+        dataParser: (json) =>
+            AttendanceRecord.fromJson(json as Map<String, dynamic>),
       );
 
       if (!response.success) {
@@ -166,7 +184,8 @@ class AttendanceRepository {
         dataParser: (json) {
           if (json is List) {
             return (json as List)
-                .map((item) => AttendanceRecord.fromJson(item as Map<String, dynamic>))
+                .map((item) =>
+                    AttendanceRecord.fromJson(item as Map<String, dynamic>))
                 .toList();
           }
           return [];
