@@ -22,8 +22,8 @@ class ApiService {
     _dio = Dio(
       BaseOptions(
         baseUrl: 'http://192.168.137.1:3000/hr',
-        connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 15),
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(seconds: 30),
         contentType: Headers.jsonContentType,
         responseType: ResponseType.json,
       ),
@@ -111,11 +111,13 @@ class ApiService {
     String endpoint, {
     Map<String, dynamic>? queryParameters,
     T Function(dynamic)? dataParser,
+    Options? options,
   }) async {
     try {
       final response = await _dio.get(
         endpoint,
         queryParameters: queryParameters,
+        options: options,
       );
 
       return ApiResponse<T>.fromJson(

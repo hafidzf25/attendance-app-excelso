@@ -4,6 +4,56 @@ import 'package:flutter/foundation.dart';
 import '../models/api_error.dart';
 import 'api_service.dart';
 
+/// Branch model
+class Branch {
+  final int id;
+  final String name;
+  final String code;
+  final double lat;
+  final double long;
+  final double? distanceKm;
+
+  Branch({
+    required this.id,
+    required this.name,
+    required this.code,
+    required this.lat,
+    required this.long,
+    this.distanceKm,
+  });
+
+  factory Branch.fromJson(Map<String, dynamic> json) {
+    return Branch(
+      id: json['id'] is int
+          ? json['id']
+          : int.tryParse(json['id'].toString()) ?? 0,
+      code: json['code'] as String,
+      name: json['name'] as String,
+      lat: json['latitude'] is num
+          ? json['latitude']
+          : double.tryParse(json['latitude'].toString()),
+      // (json['lat'] as num).toDouble(),
+      long: json['longitude'] is num
+          ? json['longitude']
+          : double.tryParse(json['longitude'].toString()),
+      distanceKm: json['distance_km'] != null
+          ? (json['distance_km'] as num).toDouble()
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'code': code,
+      'lat': lat,
+      'long': long,
+      'distance_km': distanceKm,
+    };
+  }
+}
+
 /// Attendance model
 class AttendanceRecord {
   // final String id;
@@ -18,19 +68,16 @@ class AttendanceRecord {
   // final double? longitude;
   // final String status; // 'present', 'late', 'absent'
 
-  AttendanceRecord({
-    this.nik,
-    this.name,
-    this.similarity
-    // required this.id,
-    // required this.userId,
-    // required this.checkInTime,
-    // this.checkOutTime,
-    // this.photoPath,
-    // this.latitude,
-    // this.longitude,
-    // required this.status,
-  });
+  AttendanceRecord({this.nik, this.name, this.similarity
+      // required this.id,
+      // required this.userId,
+      // required this.checkInTime,
+      // this.checkOutTime,
+      // this.photoPath,
+      // this.latitude,
+      // this.longitude,
+      // required this.status,
+      });
 
   /// Convert ke JSON untuk API
   Map<String, dynamic> toJson() {
@@ -71,8 +118,111 @@ class AttendanceRecord {
 /// Attendance repository - centralize semua attendance API calls
 class AttendanceRepository {
   final ApiService _apiService = ApiService();
+  
+  // Cache untuk branch data
+  List<Branch>? _cachedBranches;
+  DateTime? _cacheTimestamp;
+  final Duration _cacheExpiration = const Duration(minutes: 30);
 
-  /// Submit attendance check-in
+  /// Get nearest branches within radius (dengan caching dan retry)
+  Future<List<Branch>> getNearestBranches({
+    required double latitude,
+    required double longitude,
+    double radius = 0.075, // km
+    bool useCache = true,
+  }) async {
+    // Check cache dulu
+    if (useCache && _isCacheValid()) {
+      debugPrint("✅ Menggunakan cached branches");
+      return _cachedBranches!;
+    }
+
+    // Jika cache expired, ambil dari API dengan retry
+    return await _getNearestBranchesWithRetry(
+      latitude: latitude,
+      longitude: longitude,
+      radius: radius,
+    );
+  }
+
+  bool _isCacheValid() {
+    if (_cachedBranches == null || _cacheTimestamp == null) {
+      return false;
+    }
+    final elapsed = DateTime.now().difference(_cacheTimestamp!);
+    return elapsed < _cacheExpiration;
+  }
+
+  Future<List<Branch>> _getNearestBranchesWithRetry({
+    required double latitude,
+    required double longitude,
+    required double radius,
+    int maxRetries = 3,
+    int delaySeconds = 1,
+  }) async {
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        debugPrint("📡 Attempt $attempt/$maxRetries: Fetching branches...");
+        
+        final response = await _apiService.get<List<Branch>>(
+          '/branches/nearest',
+          queryParameters: {
+            'lat': latitude,
+            'long': longitude,
+          },
+          options: Options(
+            connectTimeout: const Duration(seconds: 45),
+            receiveTimeout: const Duration(seconds: 45),
+          ),
+          dataParser: (json) {
+            if (json is List) {
+              debugPrint("Parsing branches: $json");
+              return (json)
+                  .map((item) => Branch.fromJson(item as Map<String, dynamic>))
+                  .toList();
+            }
+            return [];
+          },
+        );
+
+        if (response.data == null) {
+          throw ApiError(
+            message: response.message ?? 'Failed to fetch nearest branches',
+          );
+        }
+
+        // Cache berhasil
+        _cachedBranches = response.data!;
+        _cacheTimestamp = DateTime.now();
+        
+        debugPrint("✅ Berhasil load ${response.data!.length} branch (attempt $attempt)");
+        return response.data!;
+      } catch (e) {
+        debugPrint('❌ Attempt $attempt failed: $e');
+        
+        if (attempt < maxRetries) {
+          // Exponential backoff: 1s, 2s, 4s
+          final waitSeconds = delaySeconds * (1 << (attempt - 1));
+          debugPrint('⏳ Retry dalam ${waitSeconds}s...');
+          await Future.delayed(Duration(seconds: waitSeconds));
+        } else {
+          // Semua retry gagal, throw error
+          rethrow;
+        }
+      }
+    }
+    
+    throw ApiError(
+      message: 'Failed to fetch branches after $maxRetries attempts',
+    );
+  }
+
+  /// Clear cache (call saat user logout atau refresh)
+  void clearBranchCache() {
+    _cachedBranches = null;
+    _cacheTimestamp = null;
+    debugPrint("🗑️ Branch cache cleared");
+  }
   Future<AttendanceRecord> checkIn({
     required String photoPath,
   }) async {

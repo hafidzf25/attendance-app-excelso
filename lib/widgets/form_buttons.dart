@@ -6,6 +6,7 @@ class FormButtons extends StatelessWidget {
   final VoidCallback onCheckOut;
   final bool isLoading;
   final bool isTablet;
+  final bool isBranchExists;
 
   const FormButtons({
     Key? key,
@@ -13,6 +14,7 @@ class FormButtons extends StatelessWidget {
     required this.onCheckOut,
     this.isLoading = false,
     required this.isTablet,
+    this.isBranchExists = false,
   }) : super(key: key);
 
   @override
@@ -21,7 +23,7 @@ class FormButtons extends StatelessWidget {
       children: [
         Expanded(
           child: ElevatedButton(
-            onPressed: isLoading ? null : onCheckIn,
+            onPressed: isLoading || !isBranchExists ? null : onCheckIn,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
@@ -52,7 +54,7 @@ class FormButtons extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: ElevatedButton(
-            onPressed: isLoading ? null : onCheckOut,
+            onPressed: isLoading || !isBranchExists? null : onCheckOut,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               disabledBackgroundColor: AppColors.primary.withOpacity(0.5),

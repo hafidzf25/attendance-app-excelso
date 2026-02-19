@@ -3,6 +3,7 @@ import 'package:absence_excelso/pages/camera_page.dart';
 import 'package:absence_excelso/models/api_error.dart';
 import 'package:absence_excelso/pages/result_page.dart';
 import 'package:absence_excelso/services/attendance_repository.dart';
+import 'package:absence_excelso/services/index.dart';
 import 'package:absence_excelso/widgets/index.dart';
 import 'package:flutter/material.dart';
 
@@ -13,17 +14,19 @@ class AttendancePage extends StatefulWidget {
   State<AttendancePage> createState() => _AttendancePageState();
 }
 
-class _AttendancePageState extends State<AttendancePage> {
+class _AttendancePageState extends State<AttendancePage>
+    with WidgetsBindingObserver {
   bool _isPageInitialized = false;
   bool _isSubmitting = false;
 
   final AttendanceRepository _attendanceRepository = AttendanceRepository();
+  final LocationService _locationService = LocationService();
 
   String _selectedOutlet = 'Outlet 1';
   String? _selectedShift;
   // final TextEditingController _nikController = TextEditingController();
 
-  final List<String> _outlets = [
+  List<String> _outlets = [
     'Outlet 1',
     'Outlet 2',
     'Outlet 3',
@@ -34,6 +37,7 @@ class _AttendancePageState extends State<AttendancePage> {
     'Outlet 8',
     'Outlet 9',
   ];
+
   final List<Map<String, String>> _shifts = [
     {'time': '06:00 - 14:00', 'name': 'Shift 1'},
     {'time': '14:00 - 22:00', 'name': 'Shift 2'},
@@ -49,7 +53,29 @@ class _AttendancePageState extends State<AttendancePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializePage();
+  }
+
+  @override
+  void dispose() {
+    // _nikController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted) return;
+
+    if (state == AppLifecycleState.resumed) {
+      // App kembali ke foreground
+      debugPrint("App dibuka lagi");
+      _initializePage();
+    }
+    if (state == AppLifecycleState.paused) {
+      debugPrint("App masuk background");
+    }
   }
 
   Future<void> _initializePage() async {
@@ -58,39 +84,46 @@ class _AttendancePageState extends State<AttendancePage> {
     // Bisa add minimal delay untuk UX yang lebih smooth
     await Future.delayed(const Duration(milliseconds: 300));
 
-    if (mounted) {
-      setState(() {
-        _isPageInitialized = true;
-      });
-    }
-  }
+    _isPageInitialized = false;
+    setState(() {});
 
-  @override
-  void dispose() {
-    // _nikController.dispose();
-    super.dispose();
-  }
+    debugPrint("1. Proses get lokasi");
+    final locationOk = await _locationService.getCurrentLocation();
+    if (!mounted) return;
 
-  void _showShiftModal(String actionType) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => ShiftSelectionModal(
-        shifts: _shifts,
-        initialShift: _selectedShift,
-        actionType: actionType,
-      ),
-    ).then((selectedShift) {
-      if (selectedShift != null) {
+    if (locationOk) {
+      debugPrint("2. Lokasi udah oke");
+      // Location OK, lanjut cek branch terdekat lalu inisiasi page nya
+
+      // Pengambilan branch terdekat dari backend
+      debugPrint("3. Proses get branch");
+      await _loadNearestBranches(locationOk);
+
+      debugPrint("4. Branch udah oke");
+      if (mounted) {
         setState(() {
-          _selectedShift = selectedShift;
+          _isPageInitialized = true;
         });
-        // Navigate to camera page after shift is selected
-        _navigateToCameraPage(actionType);
       }
-    });
+    } else {
+      // Location failed, show error
+      setState(() {
+        _isPageInitialized = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _locationService.errorMessage ??
+                  'Gagal mengakses lokasi. Silakan coba lagi.',
+            ),
+            backgroundColor: AppColors.danger,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _navigateToCameraPage(String actionType) async {
@@ -101,6 +134,51 @@ class _AttendancePageState extends State<AttendancePage> {
 
     if (photoPath != null && mounted) {
       await _submitAttendance(actionType, photoPath);
+    }
+  }
+
+  // Ambil branch terdekat dari backend (dengan retry & cache)
+  Future<void> _loadNearestBranches(bool isLocationOk) async {
+    if (!isLocationOk) return;
+
+    try {
+      debugPrint("📍 Loading branches dengan lat: ${_locationService.currentPosition?.latitude}, "
+          "long: ${_locationService.currentPosition?.longitude}");
+      
+      // getNearestBranches akan handle retry otomatis + caching
+      final branches = await _attendanceRepository.getNearestBranches(
+        latitude: _locationService.currentPosition!.latitude,
+        longitude: _locationService.currentPosition!.longitude,
+        radius: 0.075,
+        useCache: true, // Gunakan cache jika tersedia
+      );
+
+      if (mounted) {
+        setState(() {
+          _outlets = branches.map((b) => b.name).toList();
+          if (_outlets.isNotEmpty) {
+            _selectedOutlet = _outlets[0];
+            debugPrint("✅ Berhasil load ${_outlets.length} branch");
+          } else {
+            debugPrint("⚠️ Tidak ada branch di radius ini");
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading branches setelah retry: $e');
+      // Jika semua retry gagal, tetap gunakan default outlets (fallback)
+      if (mounted) {
+        setState(() {
+          _outlets = [
+            'Outlet 1',
+            'Outlet 2',
+            'Outlet 3',
+            'Outlet 4',
+            'Outlet 5',
+          ];
+          _selectedOutlet = _outlets[0];
+        });
+      }
     }
   }
 
@@ -128,7 +206,6 @@ class _AttendancePageState extends State<AttendancePage> {
         // await _attendanceRepository.checkOut(attendanceId: today.id);
       }
 
-      debugPrint("data nya ni bos ${data.name}");
       _showSuccessSnackbar(actionType, photoPath);
       Navigator.pushAndRemoveUntil(context, MaterialPageRoute(
         builder: (context) {
@@ -148,6 +225,28 @@ class _AttendancePageState extends State<AttendancePage> {
         });
       }
     }
+  }
+
+  void _showShiftModal(String actionType) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => ShiftSelectionModal(
+        shifts: _shifts,
+        initialShift: _selectedShift,
+        actionType: actionType,
+      ),
+    ).then((selectedShift) {
+      if (selectedShift != null) {
+        setState(() {
+          _selectedShift = selectedShift;
+        });
+        // Navigate to camera page after shift is selected
+        _navigateToCameraPage(actionType);
+      }
+    });
   }
 
   void _showSuccessSnackbar(String actionType, [String? photoPath]) {
@@ -286,6 +385,7 @@ class _AttendancePageState extends State<AttendancePage> {
                   onCheckOut: _handleCheckOut,
                   isLoading: _isSubmitting,
                   isTablet: isTablet,
+                  isBranchExists: _outlets.isNotEmpty,
                 ),
                 SizedBox(height: isTablet ? 28 : 24),
               ],

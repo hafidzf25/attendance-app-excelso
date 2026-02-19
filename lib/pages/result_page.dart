@@ -1,4 +1,5 @@
 import 'package:absence_excelso/constants/colors.dart';
+import 'package:absence_excelso/pages/attendance_page.dart';
 import 'package:absence_excelso/pages/welcome_page.dart';
 import 'package:absence_excelso/services/attendance_repository.dart';
 import 'package:flutter/material.dart';
@@ -173,7 +174,7 @@ class _ResultPageState extends State<ResultPage> {
                           Navigator.pushAndRemoveUntil(
                             context,
                             MaterialPageRoute(
-                                builder: (context) => const WelcomePage()),
+                                builder: (context) => const AttendancePage()),
                             (route) => false,
                           );
                         },
