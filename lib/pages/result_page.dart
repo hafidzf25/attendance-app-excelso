@@ -51,11 +51,11 @@ class _ResultPageState extends State<ResultPage> {
                         size: 100,
                       ),
                       const SizedBox(height: 48),
-                      const Text(
+                      Text(
                         "Absensi Berhasil",
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 24,
+                          fontSize: !isTablet ? 24 : 42,
                           fontWeight: FontWeight.bold,
                           color: AppColors.textPrimary,
                         ),
@@ -75,85 +75,116 @@ class _ResultPageState extends State<ResultPage> {
                                   offset: const Offset(1, 1))
                             ]),
                         child: Column(children: [
+                          Text(
+                            widget.attendanceRecord?.branch ??
+                                'Tidak diketahui',
+                            textAlign: TextAlign.left,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: isTablet ? 20 : 14,
+                            ),
+                          ),
+                          const Divider(),
                           Row(
                             children: [
-                              const Expanded(
+                              Expanded(
                                 flex: 3,
                                 child: Text(
                                   "Nama",
                                   textAlign: TextAlign.left,
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
+                                    fontSize: isTablet ? 20 : 14,
                                   ),
                                 ),
                               ),
-                              const Expanded(
+                              Expanded(
                                 flex: 1,
                                 child: Text(
                                   ":",
                                   textAlign: TextAlign.center,
+                                  style:
+                                      TextStyle(fontSize: isTablet ? 20 : 14),
                                 ),
                               ),
                               Expanded(
                                 flex: 6,
                                 child: Text(
-                                    widget.attendanceRecord?.name ?? 'N/A'),
+                                  widget.attendanceRecord?.name ?? 'N/A',
+                                  style: TextStyle(
+                                    fontSize: isTablet ? 20 : 14,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
                           Row(
                             children: [
-                              const Expanded(
+                              Expanded(
                                 flex: 3,
                                 child: Text(
                                   "NIK",
                                   textAlign: TextAlign.left,
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
+                                    fontSize: isTablet ? 20 : 14,
                                   ),
                                 ),
                               ),
-                              const Expanded(
+                              Expanded(
                                 flex: 1,
                                 child: Text(
                                   ":",
                                   textAlign: TextAlign.center,
+                                  style:
+                                      TextStyle(fontSize: isTablet ? 20 : 14),
                                 ),
                               ),
                               Expanded(
                                 flex: 6,
-                                child:
-                                    Text(widget.attendanceRecord?.nik ?? 'N/A'),
-                              ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              const Expanded(
-                                flex: 3,
                                 child: Text(
-                                  "Similarity",
-                                  textAlign: TextAlign.left,
+                                  widget.attendanceRecord?.nik ?? 'N/A',
                                   style: TextStyle(
-                                    fontWeight: FontWeight.bold,
+                                    fontSize: isTablet ? 20 : 14,
                                   ),
-                                ),
-                              ),
-                              const Expanded(
-                                flex: 1,
-                                child: Text(
-                                  ":",
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                              Expanded(
-                                flex: 6,
-                                child: Text(
-                                  "${((widget.attendanceRecord?.similarity ?? 0.0) * 100).round()} %"
                                 ),
                               ),
                             ],
                           ),
+                          // Row(
+                          //   children: [
+                          //     Expanded(
+                          //       flex: 3,
+                          //       child: Text(
+                          //         "Similarity",
+                          //         textAlign: TextAlign.left,
+                          //         style: TextStyle(
+                          //           fontWeight: FontWeight.bold,
+                          //           fontSize: isTablet ? 20 : 14,
+                          //         ),
+                          //       ),
+                          //     ),
+                          //     Expanded(
+                          //       flex: 1,
+                          //       child: Text(
+                          //         ":",
+                          //         textAlign: TextAlign.center,
+                          //         style: TextStyle(
+                          //           fontSize: isTablet ? 20 : 14,
+                          //         ),
+                          //       ),
+                          //     ),
+                          //     Expanded(
+                          //       flex: 6,
+                          //       child: Text(
+                          //         "${((widget.attendanceRecord?.similarity ?? 0.0) * 100).round()} %",
+                          //         style: TextStyle(
+                          //           fontSize: isTablet ? 20 : 14,
+                          //         ),
+                          //       ),
+                          //     ),
+                          //   ],
+                          // ),
                         ]),
                       ),
                       const SizedBox(height: 48),
@@ -178,7 +209,7 @@ class _ResultPageState extends State<ResultPage> {
                             (route) => false,
                           );
                         },
-                        child: const Text("Kembali ke Desktop"),
+                        child: const Text("Kembali ke Beranda"),
                       )
                     ],
                   ),

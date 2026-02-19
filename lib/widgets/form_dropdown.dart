@@ -9,6 +9,7 @@ class FormDropdown<T> extends StatelessWidget {
   final void Function(T?) onChanged;
   final IconData prefixIcon;
   final bool isTablet;
+  final VoidCallback? refreshBranch;
 
   const FormDropdown({
     Key? key,
@@ -19,6 +20,7 @@ class FormDropdown<T> extends StatelessWidget {
     required this.onChanged,
     required this.prefixIcon,
     required this.isTablet,
+    this.refreshBranch,
   }) : super(key: key);
 
   @override
@@ -26,13 +28,21 @@ class FormDropdown<T> extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: isTablet ? 16 : 14,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
-          ),
+        Row(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: isTablet ? 16 : 14,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            IconButton(
+              onPressed: refreshBranch,
+              icon: const Icon(Icons.refresh, color: AppColors.primary),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         Container(
@@ -75,7 +85,8 @@ class FormDropdown<T> extends StatelessWidget {
                     onChanged: onChanged,
                     isExpanded: true,
                     underline: const SizedBox(),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     icon: const Icon(Icons.arrow_drop_down),
                     iconEnabledColor: AppColors.primary.withOpacity(0.5),
                     dropdownColor: Colors.white,

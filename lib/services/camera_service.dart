@@ -177,6 +177,17 @@ class CameraService extends ChangeNotifier {
       // Flip horizontal untuk normalize front camera mirror effect
       image = ImageUtils.flipHorizontal(image);
       
+      // Detect device orientation dari camera sensor
+      // Front camera di portrait: width < height
+      // Front camera di landscape: width > height
+      if (image != null) {
+        bool isLandscape = image.width > image.height;
+        if (isLandscape) {
+          // Rotate 90 derajat clockwise untuk landscape
+          image = ImageUtils.rotateClockwise(image);
+        }
+      }
+      
       // Fit & crop image ke resolusi 480x512 (no distortion)
       // - Resize width ke 480 maintaining aspect ratio
       // - Crop height ke 512 dari center/top

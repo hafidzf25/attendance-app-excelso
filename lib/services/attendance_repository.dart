@@ -61,6 +61,7 @@ class AttendanceRecord {
   final String? nik;
   final String? name;
   final double? similarity;
+  final String? branch;
   // final DateTime checkInTime;
   // final DateTime? checkOutTime;
   // final String? photoPath;
@@ -68,16 +69,20 @@ class AttendanceRecord {
   // final double? longitude;
   // final String status; // 'present', 'late', 'absent'
 
-  AttendanceRecord({this.nik, this.name, this.similarity
-      // required this.id,
-      // required this.userId,
-      // required this.checkInTime,
-      // this.checkOutTime,
-      // this.photoPath,
-      // this.latitude,
-      // this.longitude,
-      // required this.status,
-      });
+  AttendanceRecord({
+    this.nik,
+    this.name,
+    this.similarity,
+    this.branch,
+    // required this.id,
+    // required this.userId,
+    // required this.checkInTime,
+    // this.checkOutTime,
+    // this.photoPath,
+    // this.latitude,
+    // this.longitude,
+    // required this.status,
+  });
 
   /// Convert ke JSON untuk API
   Map<String, dynamic> toJson() {
@@ -92,6 +97,7 @@ class AttendanceRecord {
       'nik': nik,
       'name': name,
       'similarity': similarity,
+      'branch': branch,
     };
   }
 
@@ -111,6 +117,7 @@ class AttendanceRecord {
       nik: json['nik'] as String,
       name: json['name'] as String,
       similarity: json['similarity'] as double?,
+      branch: json['branch_name'] as String,
     );
   }
 }
@@ -118,111 +125,8 @@ class AttendanceRecord {
 /// Attendance repository - centralize semua attendance API calls
 class AttendanceRepository {
   final ApiService _apiService = ApiService();
-  
-  // Cache untuk branch data
-  List<Branch>? _cachedBranches;
-  DateTime? _cacheTimestamp;
-  final Duration _cacheExpiration = const Duration(minutes: 30);
 
-  /// Get nearest branches within radius (dengan caching dan retry)
-  Future<List<Branch>> getNearestBranches({
-    required double latitude,
-    required double longitude,
-    double radius = 0.075, // km
-    bool useCache = true,
-  }) async {
-    // Check cache dulu
-    if (useCache && _isCacheValid()) {
-      debugPrint("✅ Menggunakan cached branches");
-      return _cachedBranches!;
-    }
-
-    // Jika cache expired, ambil dari API dengan retry
-    return await _getNearestBranchesWithRetry(
-      latitude: latitude,
-      longitude: longitude,
-      radius: radius,
-    );
-  }
-
-  bool _isCacheValid() {
-    if (_cachedBranches == null || _cacheTimestamp == null) {
-      return false;
-    }
-    final elapsed = DateTime.now().difference(_cacheTimestamp!);
-    return elapsed < _cacheExpiration;
-  }
-
-  Future<List<Branch>> _getNearestBranchesWithRetry({
-    required double latitude,
-    required double longitude,
-    required double radius,
-    int maxRetries = 3,
-    int delaySeconds = 1,
-  }) async {
-    for (int attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        debugPrint("📡 Attempt $attempt/$maxRetries: Fetching branches...");
-        
-        final response = await _apiService.get<List<Branch>>(
-          '/branches/nearest',
-          queryParameters: {
-            'lat': latitude,
-            'long': longitude,
-          },
-          options: Options(
-            connectTimeout: const Duration(seconds: 45),
-            receiveTimeout: const Duration(seconds: 45),
-          ),
-          dataParser: (json) {
-            if (json is List) {
-              debugPrint("Parsing branches: $json");
-              return (json)
-                  .map((item) => Branch.fromJson(item as Map<String, dynamic>))
-                  .toList();
-            }
-            return [];
-          },
-        );
-
-        if (response.data == null) {
-          throw ApiError(
-            message: response.message ?? 'Failed to fetch nearest branches',
-          );
-        }
-
-        // Cache berhasil
-        _cachedBranches = response.data!;
-        _cacheTimestamp = DateTime.now();
-        
-        debugPrint("✅ Berhasil load ${response.data!.length} branch (attempt $attempt)");
-        return response.data!;
-      } catch (e) {
-        debugPrint('❌ Attempt $attempt failed: $e');
-        
-        if (attempt < maxRetries) {
-          // Exponential backoff: 1s, 2s, 4s
-          final waitSeconds = delaySeconds * (1 << (attempt - 1));
-          debugPrint('⏳ Retry dalam ${waitSeconds}s...');
-          await Future.delayed(Duration(seconds: waitSeconds));
-        } else {
-          // Semua retry gagal, throw error
-          rethrow;
-        }
-      }
-    }
-    
-    throw ApiError(
-      message: 'Failed to fetch branches after $maxRetries attempts',
-    );
-  }
-
-  /// Clear cache (call saat user logout atau refresh)
-  void clearBranchCache() {
-    _cachedBranches = null;
-    _cacheTimestamp = null;
-    debugPrint("🗑️ Branch cache cleared");
-  }
+  /// Submit attendance check-in
   Future<AttendanceRecord> checkIn({
     required String photoPath,
   }) async {
@@ -244,6 +148,7 @@ class AttendanceRepository {
 
       debugPrint("Checkin response: ${response.toString()}");
 
+      // if (!response.success || response.data == null) {
       if (!response.success || response.data == null) {
         throw ApiError(
           message: response.message ?? 'Check-in failed',
@@ -354,6 +259,49 @@ class AttendanceRepository {
     } catch (e) {
       throw ApiError(
         message: 'Error fetching attendance history: $e',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Get nearest branches within radius
+  Future<List<Branch>> getNearestBranches({
+    required double latitude,
+    required double longitude,
+    double radius = 0.075, // km
+  }) async {
+    try {
+      final response = await _apiService.get<List<Branch>>(
+        '/branches/nearest',
+        queryParameters: {
+          'lat': latitude,
+          'long': longitude,
+        },
+        dataParser: (json) {
+          if (json is List) {
+            debugPrint("Parsing branches: $json");
+            return (json)
+                .map((item) => Branch.fromJson(item as Map<String, dynamic>))
+                .toList();
+          }
+          return [];
+        },
+      );
+
+      // if (!response.success || response.data == null) {
+      if (response.data == null) {
+        throw ApiError(
+          message: response.message ?? 'Failed to fetch nearest branches',
+        );
+      }
+
+      debugPrint("Nearest branches response: ${response.toString()}");
+      return response.data!;
+    } on ApiError {
+      rethrow;
+    } catch (e) {
+      throw ApiError(
+        message: 'Error fetching nearest branches: $e',
         originalError: e,
       );
     }

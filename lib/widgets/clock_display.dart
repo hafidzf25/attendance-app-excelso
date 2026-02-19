@@ -35,9 +35,12 @@ class _ClockDisplayState extends State<ClockDisplay> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isTablet = width >= 600;
+    
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: isTablet ? 32 : 24),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.primary.withOpacity(0.3)),

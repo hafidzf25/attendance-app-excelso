@@ -2,7 +2,6 @@ import 'package:absence_excelso/constants/colors.dart';
 import 'package:absence_excelso/pages/camera_page.dart';
 import 'package:absence_excelso/models/api_error.dart';
 import 'package:absence_excelso/pages/result_page.dart';
-import 'package:absence_excelso/services/attendance_repository.dart';
 import 'package:absence_excelso/services/index.dart';
 import 'package:absence_excelso/widgets/index.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +16,7 @@ class AttendancePage extends StatefulWidget {
 class _AttendancePageState extends State<AttendancePage>
     with WidgetsBindingObserver {
   bool _isPageInitialized = false;
+  bool _isRefreshBranch = false;
   bool _isSubmitting = false;
 
   final AttendanceRepository _attendanceRepository = AttendanceRepository();
@@ -106,9 +106,10 @@ class _AttendancePageState extends State<AttendancePage>
         });
       }
     } else {
+      debugPrint("1.1 Nyampe ga");
       // Location failed, show error
       setState(() {
-        _isPageInitialized = false;
+        _isPageInitialized = true;
       });
 
       if (mounted) {
@@ -127,6 +128,10 @@ class _AttendancePageState extends State<AttendancePage>
   }
 
   Future<void> _navigateToCameraPage(String actionType) async {
+    setState(() {
+      _isRefreshBranch = true;
+    });
+
     final photoPath = await Navigator.push<String>(
       context,
       MaterialPageRoute(builder: (context) => const CameraPage()),
@@ -137,48 +142,59 @@ class _AttendancePageState extends State<AttendancePage>
     }
   }
 
-  // Ambil branch terdekat dari backend (dengan retry & cache)
-  Future<void> _loadNearestBranches(bool isLocationOk) async {
-    if (!isLocationOk) return;
+  Future<void> refreshBranches() async {
+    if (_isRefreshBranch) return;
+
+    setState(() {
+      _outlets = [];
+      _isRefreshBranch = true;
+    });
 
     try {
-      debugPrint("📍 Loading branches dengan lat: ${_locationService.currentPosition?.latitude}, "
-          "long: ${_locationService.currentPosition?.longitude}");
-      
-      // getNearestBranches akan handle retry otomatis + caching
-      final branches = await _attendanceRepository.getNearestBranches(
-        latitude: _locationService.currentPosition!.latitude,
-        longitude: _locationService.currentPosition!.longitude,
-        radius: 0.075,
-        useCache: true, // Gunakan cache jika tersedia
-      );
-
-      if (mounted) {
-        setState(() {
-          _outlets = branches.map((b) => b.name).toList();
-          if (_outlets.isNotEmpty) {
-            _selectedOutlet = _outlets[0];
-            debugPrint("✅ Berhasil load ${_outlets.length} branch");
-          } else {
-            debugPrint("⚠️ Tidak ada branch di radius ini");
-          }
-        });
+      final locationOk = await _locationService.getCurrentLocation();
+      if (locationOk) {
+        await _loadNearestBranches(locationOk);
+      } else {
+        debugPrint("Gagal refresh branch: ${_locationService.errorMessage}");
       }
     } catch (e) {
-      debugPrint('❌ Error loading branches setelah retry: $e');
-      // Jika semua retry gagal, tetap gunakan default outlets (fallback)
+      debugPrint("Error refresh branch: $e");
+    } finally {
       if (mounted) {
         setState(() {
-          _outlets = [
-            'Outlet 1',
-            'Outlet 2',
-            'Outlet 3',
-            'Outlet 4',
-            'Outlet 5',
-          ];
-          _selectedOutlet = _outlets[0];
+          _isRefreshBranch = false;
         });
       }
+    }
+  }
+
+  // Ambil branch terdekat dari backend
+  Future<void> _loadNearestBranches(bool isLocationOk) async {
+    try {
+      if (isLocationOk) {
+        final branches = await _attendanceRepository.getNearestBranches(
+          latitude: double.parse(
+            _locationService.currentPosition!.latitude.toStringAsFixed(6),
+          ),
+          longitude: double.parse(
+            _locationService.currentPosition!.longitude.toStringAsFixed(6),
+          ),
+          radius: 0.075, // radius dalam km
+        );
+
+        if (mounted) {
+          setState(() {
+            _outlets = branches.map((b) {
+              final satuanMeter = b.distanceKm! * 100;
+              return "${b.name} (${satuanMeter.toStringAsFixed(2)} m)";
+            }).toList();
+            _selectedOutlet = _outlets.isNotEmpty ? _outlets[0] : 'Outlet 1';
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading branches: $e');
+      // Jika error, gunakan default outlets
     }
   }
 
@@ -197,6 +213,9 @@ class _AttendancePageState extends State<AttendancePage>
           photoPath: photoPath,
         );
       } else {
+        data = await _attendanceRepository.checkIn(
+          photoPath: photoPath,
+        );
         // final today =
         //     await _attendanceRepository.getTodayAttendance(userId: userId);
         // if (today == null) {
@@ -320,7 +339,9 @@ class _AttendancePageState extends State<AttendancePage>
       ),
       body: !_isPageInitialized
           ? _buildLoadingState()
-          : _buildFormContent(isTablet),
+          : !_locationService.isMockLocation
+              ? _buildFormContent(isTablet)
+              : _buildErrorState(),
     );
   }
 
@@ -337,6 +358,28 @@ class _AttendancePageState extends State<AttendancePage>
             SizedBox(height: 24),
             Text(
               'Mempersiapkan halaman presensi...',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Container(
+      decoration: const BoxDecoration(gradient: AppColors.backgroundGradient),
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(height: 24),
+            Text(
+              'Kamu terciduk',
               style: TextStyle(
                 fontSize: 14,
                 color: AppColors.textPrimary,
@@ -366,28 +409,44 @@ class _AttendancePageState extends State<AttendancePage>
               vertical: isTablet ? 24 : 16,
             ),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const WelcomeHeader(
-                  title: 'Form Kehadiran',
-                  subtitle: 'Silakan isi data untuk presensi',
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const WelcomeHeader(
+                      title: 'Form Kehadiran',
+                      subtitle: 'Silakan isi data untuk presensi',
+                    ),
+                    SizedBox(height: isTablet ? 32 : 24),
+                    const ClockDisplay(),
+                    SizedBox(height: isTablet ? 24 : 20),
+                    !_isRefreshBranch
+                        ? _buildOutletDropdown(isTablet)
+                        : const Padding(
+                            padding: EdgeInsets.only(top: 16),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                  color: AppColors.primary),
+                            ),
+                          ),
+                    // SizedBox(height: isTablet ? 24 : 20),
+                    // _buildNikTextField(isTablet),
+                  ],
                 ),
-                SizedBox(height: isTablet ? 32 : 24),
-                const ClockDisplay(),
-                SizedBox(height: isTablet ? 24 : 20),
-                _buildOutletDropdown(isTablet),
-                // SizedBox(height: isTablet ? 24 : 20),
-                // _buildNikTextField(isTablet),
-                SizedBox(height: isTablet ? 28 : 24),
-                FormButtons(
-                  onCheckIn: _handleCheckIn,
-                  onCheckOut: _handleCheckOut,
-                  isLoading: _isSubmitting,
-                  isTablet: isTablet,
-                  isBranchExists: _outlets.isNotEmpty,
+                Column(
+                  children: [
+                    FormButtons(
+                      onCheckIn: _handleCheckIn,
+                      onCheckOut: _handleCheckOut,
+                      isLoading: _isSubmitting,
+                      isTablet: isTablet,
+                      isBranchExists: _outlets.isNotEmpty,
+                    ),
+                    // SizedBox(height: isTablet ? 28 : 24),
+                  ],
                 ),
-                SizedBox(height: isTablet ? 28 : 24),
               ],
             ),
           ),
@@ -411,6 +470,7 @@ class _AttendancePageState extends State<AttendancePage>
       },
       prefixIcon: Icons.location_on,
       isTablet: isTablet,
+      refreshBranch: refreshBranches,
     );
   }
 

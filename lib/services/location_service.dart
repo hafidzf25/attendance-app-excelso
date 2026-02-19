@@ -123,13 +123,13 @@ class LocationService extends ChangeNotifier {
       );
 
       // Check if location is mocked
-      // if (position.isMocked) {
-      //   _isMockLocation = true;
-      //   _errorMessage = 'Mock Location terdeteksi. Silakan matikan GPS Mock di pengaturan.';
-      //   _isLoading = false;
-      //   notifyListeners();
-      //   return false;
-      // }
+      if (position.isMocked) {
+        _isMockLocation = true;
+        _errorMessage = 'Mock Location terdeteksi. Silakan matikan GPS Mock di pengaturan.';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
 
       _currentPosition = position;
       _isMockLocation = false;

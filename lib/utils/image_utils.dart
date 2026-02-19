@@ -9,6 +9,12 @@ class ImageUtils {
     return img.flipHorizontal(image);
   }
 
+  /// Rotate image 90 degrees clockwise
+  static img.Image? rotateClockwise(img.Image? image) {
+    if (image == null) return null;
+    return img.copyRotate(image, 90);
+  }
+
   /// Encode image to JPG bytes
   static List<int> encodeToJpg(img.Image image, [int quality = 85]) {
     return img.encodeJpg(image, quality: quality);

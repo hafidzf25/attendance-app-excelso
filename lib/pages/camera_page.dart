@@ -353,30 +353,30 @@ class _CameraPageState extends State<CameraPage> {
                         const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                     child: Column(
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: LinearProgressIndicator(
-                            value: _faceQualityScore / 100,
-                            minHeight: 8,
-                            backgroundColor: Colors.grey.withOpacity(0.3),
-                            valueColor: AlwaysStoppedAnimation(
-                              _faceDetected && _faceQualityScore >= 80
-                                  ? Colors.green
-                                  : _faceDetected && _faceQualityScore >= 60
-                                      ? Colors.orange
-                                      : Colors.red,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Kualitas Wajah: $_faceQualityScore/100',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                        // ClipRRect(
+                        //   borderRadius: BorderRadius.circular(8),
+                        //   child: LinearProgressIndicator(
+                        //     value: _faceQualityScore / 100,
+                        //     minHeight: 8,
+                        //     backgroundColor: Colors.grey.withOpacity(0.3),
+                        //     valueColor: AlwaysStoppedAnimation(
+                        //       _faceDetected && _faceQualityScore >= 80
+                        //           ? Colors.green
+                        //           : _faceDetected && _faceQualityScore >= 60
+                        //               ? Colors.orange
+                        //               : Colors.red,
+                        //     ),
+                        //   ),
+                        // ),
+                        // const SizedBox(height: 8),
+                        // Text(
+                        //   'Kualitas Wajah: $_faceQualityScore/100',
+                        //   style: const TextStyle(
+                        //     color: Colors.white,
+                        //     fontSize: 12,
+                        //     fontWeight: FontWeight.w500,
+                        //   ),
+                        // ),
                       ],
                     ),
                   ),
