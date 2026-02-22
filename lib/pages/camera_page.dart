@@ -60,7 +60,8 @@ class _CameraPageState extends State<CameraPage> {
   void _setupCropPreview() {
     _cameraService.cameraController?.startImageStream((image) {
       _frameCounter++;
-      if (_frameCounter % 3 == 0 && !_isProcessing) {
+      // Process setiap 5 frame (~6x per detik pada 30fps camera)
+      if (_frameCounter % 5 == 0 && !_isProcessing) {
         _isProcessing = true;
         _processCropPreview(image).then((_) {
           _isProcessing = false;
@@ -124,7 +125,8 @@ class _CameraPageState extends State<CameraPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Terdeteksi $_faceCount wajah. Pastikan hanya 1 orang di frame!'),
+            content: Text(
+                'Terdeteksi $_faceCount wajah. Pastikan hanya 1 orang di frame!'),
             backgroundColor: AppColors.danger,
           ),
         );
@@ -144,7 +146,7 @@ class _CameraPageState extends State<CameraPage> {
       return;
     }
 
-    if (_faceQualityScore < 50) {
+    if (_faceQualityScore < 30) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -222,14 +224,22 @@ class _CameraPageState extends State<CameraPage> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        title: const Text(
-          'Ambil Foto',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: AppColors.primaryHorizontal,
+          ),
         ),
+        title: Text(
+          'Absensi Kehadiran',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'Inter',
+            fontSize: isTablet ? 24 : 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        foregroundColor: Colors.white,
         centerTitle: true,
-        elevation: 2,
       ),
       body: _isLoading ? _buildLoadingState() : _buildCameraPreview(isTablet),
     );
@@ -284,8 +294,12 @@ class _CameraPageState extends State<CameraPage> {
               child: FittedBox(
                 fit: BoxFit.cover,
                 child: SizedBox(
-                  width: _cameraService.cameraController!.value.previewSize?.height ?? 1,
-                  height: _cameraService.cameraController!.value.previewSize?.width ?? 1,
+                  width: _cameraService
+                          .cameraController!.value.previewSize?.height ??
+                      1,
+                  height: _cameraService
+                          .cameraController!.value.previewSize?.width ??
+                      1,
                   child: CameraPreview(_cameraService.cameraController!),
                 ),
               ),
@@ -309,7 +323,8 @@ class _CameraPageState extends State<CameraPage> {
                   Padding(
                     padding: const EdgeInsets.all(16),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
                         color: _faceCount > 1
                             ? Colors.red.withOpacity(0.8)
@@ -349,8 +364,8 @@ class _CameraPageState extends State<CameraPage> {
                     ),
                   ),
                   Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 12),
                     child: Column(
                       children: [
                         // ClipRRect(
@@ -404,9 +419,10 @@ class _CameraPageState extends State<CameraPage> {
                         const SizedBox(width: 16),
                         FloatingActionButton.extended(
                           onPressed: _capturePhoto,
-                          backgroundColor: _faceDetected && _faceQualityScore >= 50
-                              ? AppColors.success
-                              : Colors.grey,
+                          backgroundColor:
+                              _faceDetected && _faceQualityScore >= 50
+                                  ? AppColors.success
+                                  : Colors.grey,
                           icon: const Icon(Icons.camera_alt),
                           label: const Text('Ambil Foto'),
                         ),
@@ -445,14 +461,14 @@ class _CircleFrameDarkenPainter extends CustomPainter {
       ..color = frameColor.withOpacity(0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
-    
+
     // Horizontal line
     canvas.drawLine(
       Offset(center.dx - 20, center.dy),
       Offset(center.dx + 20, center.dy),
       guidePaint,
     );
-    
+
     // Vertical line
     canvas.drawLine(
       Offset(center.dx, center.dy - 20),
@@ -475,14 +491,14 @@ class _InvertedCircleClipper extends CustomClipper<Path> {
     final path = Path();
     final center = Offset(size.width / 2, size.height / 2);
     final radius = circleSize / 2;
-    
+
     // Add outer rectangle
     path.addRect(Rect.fromLTWH(0, 0, size.width, size.height));
-    
+
     // Subtract circle (inverted clip)
     path.addOval(Rect.fromCircle(center: center, radius: radius));
     path.fillType = PathFillType.evenOdd;
-    
+
     return path;
   }
 

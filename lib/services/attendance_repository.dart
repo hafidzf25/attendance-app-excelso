@@ -54,14 +54,116 @@ class Branch {
   }
 }
 
+/// Branch model
+class Shift {
+  final int id;
+  final int ordering;
+  final DateTime startTime;
+  final DateTime endTime;
+
+  Shift({
+    required this.id,
+    required this.ordering,
+    required this.startTime,
+    required this.endTime,
+  });
+
+  factory Shift.fromJson(Map<String, dynamic> json) {
+    return Shift(
+      id: json['id'] is int
+          ? json['id']
+          : int.tryParse(json['id'].toString()) ?? 0,
+      ordering: json['ordering'] is int
+          ? json['ordering']
+          : int.tryParse(json['ordering'].toString()) ?? 0,
+      startTime: _parseTime(json['startTime'] ?? json['start_time']),
+      endTime: _parseTime(json['endTime'] ?? json['end_time']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'ordering': ordering,
+      'startTime': _formatTime(startTime),
+      'endTime': _formatTime(endTime),
+    };
+  }
+
+  static DateTime _parseTime(dynamic value) {
+    final now = DateTime.now();
+
+    if (value is DateTime) {
+      return DateTime(
+        now.year,
+        now.month,
+        now.day,
+        value.hour,
+        value.minute,
+        value.second,
+      );
+    }
+
+    final raw = value?.toString() ?? '';
+    final match = RegExp(r'(\d{2}):(\d{2}):(\d{2})').firstMatch(raw);
+
+    if (match != null) {
+      return DateTime(
+        now.year,
+        now.month,
+        now.day,
+        int.parse(match.group(1)!),
+        int.parse(match.group(2)!),
+        int.parse(match.group(3)!),
+      );
+    }
+
+    throw FormatException('Invalid time format: $raw');
+  }
+
+  /// Format time-only untuk kirim ke backend
+  static String _formatTime(DateTime dateTime) {
+    return "${dateTime.hour.toString().padLeft(2, '0')}:"
+        "${dateTime.minute.toString().padLeft(2, '0')}:"
+        "${dateTime.second.toString().padLeft(2, '0')}";
+  }
+}
+
+class DateFormatter {
+  static String toTimeHM(String isoString) {
+    final dt = DateTime.parse(isoString);
+    final hour = dt.hour.toString().padLeft(2, '0');
+    final minute = dt.minute.toString().padLeft(2, '0');
+    return "$hour:$minute";
+  }
+
+  static String toDateTimeHMS(String isoString) {
+    final dt = DateTime.parse(isoString).toLocal();
+
+    final year = dt.year;
+    final month = dt.month.toString().padLeft(2, '0');
+    final day = dt.day.toString().padLeft(2, '0');
+
+    final hour = dt.hour.toString().padLeft(2, '0');
+    final minute = dt.minute.toString().padLeft(2, '0');
+    final second = dt.second.toString().padLeft(2, '0');
+
+    return "$year-$month-$day $hour:$minute:$second";
+  }
+}
+
 /// Attendance model
 class AttendanceRecord {
   // final String id;
   // final String userId;
-  final String? nik;
-  final String? name;
-  final double? similarity;
+  final String? employeeNumber;
+  final String? employeeName;
+  // final double? similarity;
   final String? branch;
+  final String? type;
+  final String? shiftStart;
+  final String? shifEnd;
+  final String? clockAt;
   // final DateTime checkInTime;
   // final DateTime? checkOutTime;
   // final String? photoPath;
@@ -70,10 +172,14 @@ class AttendanceRecord {
   // final String status; // 'present', 'late', 'absent'
 
   AttendanceRecord({
-    this.nik,
-    this.name,
-    this.similarity,
+    this.employeeNumber,
+    this.employeeName,
+    // this.similarity,
     this.branch,
+    this.type,
+    this.shiftStart,
+    this.shifEnd,
+    this.clockAt,
     // required this.id,
     // required this.userId,
     // required this.checkInTime,
@@ -94,10 +200,14 @@ class AttendanceRecord {
       // 'latitude': latitude,
       // 'longitude': longitude,
       // 'status': status,
-      'nik': nik,
-      'name': name,
-      'similarity': similarity,
+      'employeeNumber': employeeNumber,
+      'employeeName': employeeName,
+      // 'similarity': similarity,
       'branch': branch,
+      'type': type,
+      'shiftStart': shiftStart,
+      'shifEnd': shifEnd,
+      'clockAt': clockAt,
     };
   }
 
@@ -114,10 +224,14 @@ class AttendanceRecord {
       // latitude: (json['latitude'] as num?)?.toDouble(),
       // longitude: (json['longitude'] as num?)?.toDouble(),
       // status: json['status'] as String,
-      nik: json['nik'] as String,
-      name: json['name'] as String,
-      similarity: json['similarity'] as double?,
-      branch: json['branch_name'] as String,
+      employeeNumber: json['employeeNumber'] as String,
+      employeeName: json['employeeName'] as String,
+      // similarity: json['similarity'] as double?,
+      branch: json['branch'] as String,
+      type: json['type'] as String,
+      shiftStart: DateFormatter.toTimeHM(json["shiftStart"]!),
+      shifEnd: DateFormatter.toTimeHM(json["shifEnd"]!),
+      clockAt: DateFormatter.toDateTimeHMS(json["clockAt"]!),
     );
   }
 }
@@ -129,6 +243,11 @@ class AttendanceRepository {
   /// Submit attendance check-in
   Future<AttendanceRecord> checkIn({
     required String photoPath,
+    required double latitude,
+    required double longitude,
+    required String type,
+    required int shiftId,
+    required String branchCode,
   }) async {
     try {
       final formData = FormData.fromMap({
@@ -136,6 +255,11 @@ class AttendanceRepository {
           photoPath,
           filename: 'attendance.jpg',
         ),
+        'latitude': latitude,
+        'longitude': longitude,
+        'type': type,
+        'shiftId': shiftId,
+        'branchCode': branchCode,
       });
 
       final response = await _apiService.post<AttendanceRecord>(
@@ -149,13 +273,14 @@ class AttendanceRepository {
       debugPrint("Checkin response: ${response.toString()}");
 
       // if (!response.success || response.data == null) {
-      if (!response.success || response.data == null) {
+      if (response.data == null) {
         throw ApiError(
           message: response.message ?? 'Check-in failed',
         );
       }
 
       // return response.message ?? 'Check-in successful'; // dummy, karena API belum siap, kita return message dulu
+      debugPrint("${response.rawData}");
       return response.data!; // rill
     } on ApiError {
       rethrow;
@@ -302,6 +427,43 @@ class AttendanceRepository {
     } catch (e) {
       throw ApiError(
         message: 'Error fetching nearest branches: $e',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Get nearest branches within radius
+  Future<List<Shift>> getShift() async {
+    try {
+      final response = await _apiService.get<List<Shift>>(
+        '/attendances/shift',
+        queryParameters: {},
+        dataParser: (json) {
+          if (json is List) {
+            // debugPrint("Parsing shift: $json");
+            return (json)
+                .map((item) => Shift.fromJson(item as Map<String, dynamic>))
+                .toList();
+          }
+          // debugPrint("LOLOS");
+          return [];
+        },
+      );
+
+      // if (!response.success || response.data == null) {
+      if (response.data == null) {
+        throw ApiError(
+          message: response.message ?? 'Failed to fetch shift',
+        );
+      }
+
+      // debugPrint("Shift response: ${response.toString()}");
+      return response.data!;
+    } on ApiError {
+      rethrow;
+    } catch (e) {
+      throw ApiError(
+        message: 'Error fetching shift: $e',
         originalError: e,
       );
     }

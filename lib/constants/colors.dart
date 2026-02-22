@@ -17,9 +17,19 @@ class AppColors {
       Color(0xffe8f4f8),
     ],
   );
+
+  // Gradient Excelso
+  static const LinearGradient primaryHorizontal = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [
+      Color(0xff0C8FB0),
+      Color(0xff006B86),
+    ],
+  );
   
   // Text colors
-  static const Color textPrimary = Color(0xff0C8FB0);
+  static const Color textPrimary = Color(0xff006B86);
   static const Color textSecondary = Color(0xff666666);
   
   // Others

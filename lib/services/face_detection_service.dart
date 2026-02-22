@@ -68,9 +68,9 @@ class FaceDetectionService {
       // Check apakah ada landmark (mata, hidung, mulut terdeteksi)
       final hasLandmarks = face.landmarks.isNotEmpty;
 
-      // Check apakah head angle tidak terlalu miring
+      // Check apakah head angle tidak terlalu miring (relaxed to 45 degrees)
       final headEulerAngleY = face.headEulerAngleY ?? 0;
-      const maxHeadAngle = 30; // Max 30 degrees rotation
+      const maxHeadAngle = 45; // Max 45 degrees rotation
 
       return hasLandmarks && headEulerAngleY.abs() < maxHeadAngle;
     });

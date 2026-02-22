@@ -34,13 +34,20 @@ class FormDropdown<T> extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: isTablet ? 16 : 14,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w600,
+                foreground: Paint()
+                  ..shader = AppColors.primaryHorizontal.createShader(
+                    const Rect.fromLTWH(0, 0, 200, 70),
+                  ),
+                fontFamily: 'Inter',
               ),
             ),
             IconButton(
               onPressed: refreshBranch,
-              icon: const Icon(Icons.refresh, color: AppColors.primary),
+              icon: const Icon(
+                Icons.refresh_rounded,
+                color: Color(0xff0C8FB0),
+              ),
             ),
           ],
         ),
@@ -48,8 +55,8 @@ class FormDropdown<T> extends StatelessWidget {
         Container(
           decoration: BoxDecoration(
             border: Border.all(
-              color: AppColors.primary,
-              width: 1.5,
+              color: const Color(0xff0C8FB0),
+              width: 2,
             ),
             borderRadius: BorderRadius.circular(8),
           ),
@@ -57,10 +64,17 @@ class FormDropdown<T> extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.only(left: 12),
-                child: Icon(
-                  prefixIcon,
-                  color: AppColors.primary.withOpacity(0.5),
-                  size: 20,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xffE8F5F9),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Icon(
+                    prefixIcon,
+                    color: const Color(0xff0C8FB0),
+                    size: 20,
+                  ),
                 ),
               ),
               Expanded(
@@ -87,7 +101,10 @@ class FormDropdown<T> extends StatelessWidget {
                     underline: const SizedBox(),
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    icon: const Icon(Icons.arrow_drop_down),
+                    icon: const Icon(
+                      Icons.arrow_drop_down,
+                      color: AppColors.primary,
+                    ),
                     iconEnabledColor: AppColors.primary.withOpacity(0.5),
                     dropdownColor: Colors.white,
                     style: TextStyle(

@@ -24,6 +24,7 @@ class _AttendancePageState extends State<AttendancePage>
 
   String _selectedOutlet = 'Outlet 1';
   String? _selectedShift;
+  List<Branch> _branches = [];
   // final TextEditingController _nikController = TextEditingController();
 
   List<String> _outlets = [
@@ -38,16 +39,19 @@ class _AttendancePageState extends State<AttendancePage>
     'Outlet 9',
   ];
 
-  final List<Map<String, String>> _shifts = [
-    {'time': '06:00 - 14:00', 'name': 'Shift 1'},
-    {'time': '14:00 - 22:00', 'name': 'Shift 2'},
-    {'time': '22:00 - 06:00', 'name': 'Shift 3'},
-    {'time': '06:00 - 14:00', 'name': 'Shift 4'},
-    {'time': '14:00 - 22:00', 'name': 'Shift 5'},
-    {'time': '22:00 - 06:00', 'name': 'Shift 6'},
-    {'time': '06:00 - 14:00', 'name': 'Shift 7'},
-    {'time': '14:00 - 22:00', 'name': 'Shift 8'},
-    {'time': '22:00 - 06:00', 'name': 'Shift 9'},
+  List<Shift> _shifts = [
+    Shift(
+      id: 1,
+      ordering: 1,
+      startTime: DateTime(2026, 2, 20, 15, 30),
+      endTime: DateTime(2026, 2, 20, 18, 30),
+    ),
+    Shift(
+      id: 2,
+      ordering: 2,
+      startTime: DateTime(2026, 2, 21, 15, 30),
+      endTime: DateTime(2026, 2, 21, 18, 30),
+    ),
   ];
 
   @override
@@ -72,6 +76,7 @@ class _AttendancePageState extends State<AttendancePage>
       // App kembali ke foreground
       debugPrint("App dibuka lagi");
       _initializePage();
+      _loadShift();
     }
     if (state == AppLifecycleState.paused) {
       debugPrint("App masuk background");
@@ -99,6 +104,9 @@ class _AttendancePageState extends State<AttendancePage>
       debugPrint("3. Proses get branch");
       await _loadNearestBranches(locationOk);
 
+      debugPrint("3.1. Proses get shift");
+      await _loadShift();
+
       debugPrint("4. Branch udah oke");
       if (mounted) {
         setState(() {
@@ -120,7 +128,7 @@ class _AttendancePageState extends State<AttendancePage>
                   'Gagal mengakses lokasi. Silakan coba lagi.',
             ),
             backgroundColor: AppColors.danger,
-            duration: const Duration(seconds: 4),
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -140,6 +148,10 @@ class _AttendancePageState extends State<AttendancePage>
     if (photoPath != null && mounted) {
       await _submitAttendance(actionType, photoPath);
     }
+
+    setState(() {
+      _isRefreshBranch = false;
+    });
   }
 
   Future<void> refreshBranches() async {
@@ -184,6 +196,7 @@ class _AttendancePageState extends State<AttendancePage>
 
         if (mounted) {
           setState(() {
+            _branches = branches;
             _outlets = branches.map((b) {
               final satuanMeter = b.distanceKm! * 100;
               return "${b.name} (${satuanMeter.toStringAsFixed(2)} m)";
@@ -198,6 +211,27 @@ class _AttendancePageState extends State<AttendancePage>
     }
   }
 
+  // Ambil shift dari backend
+  Future<void> _loadShift() async {
+    try {
+      final shift = await _attendanceRepository.getShift();
+
+      if (mounted) {
+        setState(() {
+          _shifts = shift;
+          // _outlets = branches.map((b) {
+          //   final satuanMeter = b.distanceKm! * 100;
+          //   return "${b.name} (${satuanMeter.toStringAsFixed(2)} m)";
+          // }).toList();
+          // _selectedOutlet = _outlets.isNotEmpty ? _outlets[0] : 'Outlet 1';
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading shift: $e');
+      // Jika error, gunakan default outlets
+    }
+  }
+
   Future<void> _submitAttendance(String actionType, String photoPath) async {
     if (_isSubmitting) return;
 
@@ -206,15 +240,42 @@ class _AttendancePageState extends State<AttendancePage>
     });
 
     try {
+      final currentPosition = _locationService.currentPosition;
+      final latitude = currentPosition?.latitude ?? 0;
+      final longitude = currentPosition?.longitude ?? 0;
+      final type = actionType == 'Check In' ? 'in' : 'out';
+      final selectedShift = _shifts.cast<Shift?>().firstWhere(
+            (shift) =>
+                shift != null &&
+                '${shift.startTime} - ${shift.endTime}' == _selectedShift,
+            orElse: () => null,
+          );
+      final shiftId = selectedShift?.id ?? 0;
+      final selectedOutletIndex = _outlets.indexOf(_selectedOutlet);
+      final branchCode =
+          (selectedOutletIndex >= 0 && selectedOutletIndex < _branches.length)
+              ? _branches[selectedOutletIndex].code
+              : '';
+
       // final userId = _nikController.text.trim();
       var data = AttendanceRecord();
       if (actionType == 'Check In') {
         data = await _attendanceRepository.checkIn(
           photoPath: photoPath,
+          latitude: latitude,
+          longitude: longitude,
+          type: type,
+          shiftId: shiftId,
+          branchCode: branchCode,
         );
       } else {
         data = await _attendanceRepository.checkIn(
           photoPath: photoPath,
+          latitude: latitude,
+          longitude: longitude,
+          type: type,
+          shiftId: shiftId,
+          branchCode: branchCode,
         );
         // final today =
         //     await _attendanceRepository.getTodayAttendance(userId: userId);
@@ -326,16 +387,25 @@ class _AttendancePageState extends State<AttendancePage>
     final isTablet = width >= 600;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        title: const Text(
-          'Absensi Kerja',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+              gradient: AppColors.primaryHorizontal,
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(32),
+                bottomRight: Radius.circular(32),
+              )),
+        ),
+        title: Text(
+          'Absensi Kehadiran',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'Inter',
+            fontSize: isTablet ? 24 : 18,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         centerTitle: true,
-        elevation: 2,
       ),
       body: !_isPageInitialized
           ? _buildLoadingState()
@@ -346,26 +416,23 @@ class _AttendancePageState extends State<AttendancePage>
   }
 
   Widget _buildLoadingState() {
-    return Container(
-      decoration: const BoxDecoration(gradient: AppColors.backgroundGradient),
-      child: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation(AppColors.primary),
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation(AppColors.primary),
+          ),
+          SizedBox(height: 24),
+          Text(
+            'Mempersiapkan halaman presensi...',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w500,
             ),
-            SizedBox(height: 24),
-            Text(
-              'Mempersiapkan halaman presensi...',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -396,17 +463,22 @@ class _AttendancePageState extends State<AttendancePage>
     return SafeArea(
       child: SingleChildScrollView(
         child: Container(
-          color: Colors.white,
           constraints: BoxConstraints(
             minHeight: MediaQuery.of(context).size.height -
                 kToolbarHeight -
                 MediaQuery.of(context).padding.top,
           ),
+          decoration: const BoxDecoration(
+            image: DecorationImage(
+                image: AssetImage('assets/images/bunga-2.png'),
+                fit: BoxFit.contain,
+                alignment: Alignment.bottomRight),
+          ),
           width: double.infinity,
           child: Padding(
             padding: EdgeInsets.symmetric(
               horizontal: isTablet ? 32 : 16,
-              vertical: isTablet ? 24 : 16,
+              vertical: isTablet ? 52 : 50,
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -417,11 +489,11 @@ class _AttendancePageState extends State<AttendancePage>
                   children: [
                     const WelcomeHeader(
                       title: 'Form Kehadiran',
-                      subtitle: 'Silakan isi data untuk presensi',
+                      subtitle: 'Silakan isi data untuk presensi hari ini',
                     ),
-                    SizedBox(height: isTablet ? 32 : 24),
+                    SizedBox(height: isTablet ? 50 : 46),
                     const ClockDisplay(),
-                    SizedBox(height: isTablet ? 24 : 20),
+                    SizedBox(height: isTablet ? 64 : 60),
                     !_isRefreshBranch
                         ? _buildOutletDropdown(isTablet)
                         : const Padding(
@@ -457,7 +529,7 @@ class _AttendancePageState extends State<AttendancePage>
 
   Widget _buildOutletDropdown(bool isTablet) {
     return FormDropdown<String>(
-      label: 'Pilih Outlet',
+      label: 'Pilih Lokasi yang Sesuai',
       value: _selectedOutlet,
       items: _outlets,
       itemLabel: (outlet) => outlet,
@@ -468,7 +540,7 @@ class _AttendancePageState extends State<AttendancePage>
           });
         }
       },
-      prefixIcon: Icons.location_on,
+      prefixIcon: Icons.location_on_outlined,
       isTablet: isTablet,
       refreshBranch: refreshBranches,
     );

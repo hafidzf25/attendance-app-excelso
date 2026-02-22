@@ -25,7 +25,13 @@ class FormButtons extends StatelessWidget {
           child: ElevatedButton(
             onPressed: isLoading || !isBranchExists ? null : onCheckIn,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
+              side: BorderSide(
+                color: isLoading || !isBranchExists
+                    ? Colors.white
+                    : const Color(0xff0C8FB0),
+                width: 2,
+              ),
+              backgroundColor: Colors.white,
               disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
               padding: EdgeInsets.symmetric(
                 vertical: isTablet ? 18 : 16,
@@ -37,14 +43,21 @@ class FormButtons extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.login, color: Colors.white),
+                Icon(
+                  Icons.login,
+                  color: isLoading || !isBranchExists
+                      ? Colors.white
+                      : const Color(0xff0C8FB0),
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Masuk',
                   style: TextStyle(
                     fontSize: isTablet ? 16 : 14,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: isLoading || !isBranchExists
+                        ? Colors.white
+                        : const Color(0xff0C8FB0),
                   ),
                 ),
               ],
@@ -54,7 +67,7 @@ class FormButtons extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: ElevatedButton(
-            onPressed: isLoading || !isBranchExists? null : onCheckOut,
+            onPressed: isLoading || !isBranchExists ? null : onCheckOut,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               disabledBackgroundColor: AppColors.primary.withOpacity(0.5),

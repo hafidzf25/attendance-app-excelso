@@ -22,24 +22,33 @@ class WelcomeHeader extends StatelessWidget {
               child: Text(
                 title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 32,
+                  fontWeight: FontWeight.w700,
+                  foreground: Paint()
+                    ..shader = AppColors.primaryHorizontal.createShader(
+                      const Rect.fromLTWH(0, 0, 200, 70),
+                    ),
                 ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 24),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8.0),
           child: Text(
             subtitle,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppColors.textSecondary,
+            style: TextStyle(
+              fontSize: 16,
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w400,
+              foreground: Paint()
+                ..shader = AppColors.primaryHorizontal.createShader(
+                  const Rect.fromLTWH(0, 0, 200, 70),
+                ),
             ),
           ),
         ),

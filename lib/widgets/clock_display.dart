@@ -37,19 +37,31 @@ class _ClockDisplayState extends State<ClockDisplay> {
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     final isTablet = width >= 600;
-    
+
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: isTablet ? 32 : 24),
+      padding:
+          EdgeInsets.symmetric(horizontal: 16, vertical: isTablet ? 32 : 24),
       decoration: BoxDecoration(
+        image: const DecorationImage(
+          image: AssetImage('assets/images/bunga.png'),
+          alignment: Alignment.centerLeft,
+          fit: BoxFit.contain,
+        ),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-        color: AppColors.primary,
+        gradient: AppColors.primaryHorizontal,
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.3),
-            offset: const Offset(0, 8),
-            blurRadius: 16,
+            color: const Color(0xff000000).withOpacity(0.1),
+            offset: const Offset(0, 10),
+            blurRadius: 15,
+            spreadRadius: -3,
+          ),
+          BoxShadow(
+            color: const Color(0xff000000).withOpacity(0.1),
+            offset: const Offset(0, 4),
+            blurRadius: 6,
+            spreadRadius: -4,
           ),
         ],
       ),
@@ -69,9 +81,10 @@ class _ClockDisplayState extends State<ClockDisplay> {
             // DateFormat('EEEE, d MMMM yyyy', 'id_ID')
             DateFormat('d MMMM yyyy', 'id_ID').format(_currentDateTime),
             style: const TextStyle(
+              fontFamily: 'Inter',
               fontSize: 14,
               color: AppColors.white,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],

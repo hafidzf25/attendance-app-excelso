@@ -88,7 +88,7 @@ class _WelcomePageState extends State<WelcomePage> {
                   'Gagal mengakses lokasi. Silakan coba lagi.',
             ),
             backgroundColor: AppColors.danger,
-            duration: const Duration(seconds: 4),
+            duration: const Duration(seconds: 3),
           ),
         );
       }

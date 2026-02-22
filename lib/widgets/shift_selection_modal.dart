@@ -1,8 +1,9 @@
+import 'package:absence_excelso/services/attendance_repository.dart';
 import 'package:flutter/material.dart';
 import '../constants/colors.dart';
 
 class ShiftSelectionModal extends StatefulWidget {
-  final List<Map<String, String>> shifts;
+  final List<Shift> shifts;
   final String? initialShift;
   final String actionType;
 
@@ -15,6 +16,11 @@ class ShiftSelectionModal extends StatefulWidget {
 
   @override
   State<ShiftSelectionModal> createState() => _ShiftSelectionModalState();
+}
+
+String formatTime(DateTime dt) {
+  return "${dt.hour.toString().padLeft(2, '0')}:"
+      "${dt.minute.toString().padLeft(2, '0')}";
 }
 
 class _ShiftSelectionModalState extends State<ShiftSelectionModal> {
@@ -30,20 +36,21 @@ class _ShiftSelectionModalState extends State<ShiftSelectionModal> {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
+      color: Colors.white,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
-          Row(
+          const Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.schedule,
                 color: AppColors.primary,
                 size: 24,
               ),
-              const SizedBox(width: 12),
-              const Text(
+              SizedBox(width: 12),
+              Text(
                 'Pilih Jadwal Shift',
                 style: TextStyle(
                   fontSize: 18,
@@ -54,29 +61,43 @@ class _ShiftSelectionModalState extends State<ShiftSelectionModal> {
             ],
           ),
           const SizedBox(height: 20),
-          
+
           // Shift List
           Expanded(
             child: ListView.builder(
               itemCount: widget.shifts.length,
               itemBuilder: (context, index) {
                 final shift = widget.shifts[index];
-                final shiftKey = '${shift['time']} - ${shift['name']}';
+                final shiftKey = '${shift.startTime} - ${shift.endTime}';
                 final isSelected = _tempSelectedShift == shiftKey;
-                
+
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
+                  margin: const EdgeInsets.only(
+                      bottom: 12, left: 4, right: 4, top: 4),
                   decoration: BoxDecoration(
                     border: Border.all(
-                      color: isSelected 
-                        ? AppColors.primary 
-                        : AppColors.primary.withOpacity(0.3),
+                      color:
+                          isSelected ? AppColors.primary : Colors.transparent,
                       width: isSelected ? 2 : 1.5,
                     ),
                     borderRadius: BorderRadius.circular(12),
                     color: isSelected
-                      ? AppColors.primary.withOpacity(0.1)
-                      : Colors.white,
+                        ? AppColors.primary.withOpacity(0.1)
+                        : Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 3,
+                        spreadRadius: 0,
+                        offset: const Offset(0, 1),
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 2,
+                        spreadRadius: 0,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
                   ),
                   child: Material(
                     color: Colors.transparent,
@@ -97,45 +118,44 @@ class _ShiftSelectionModalState extends State<ShiftSelectionModal> {
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: isSelected
-                                    ? AppColors.primary
-                                    : AppColors.primary.withOpacity(0.5),
+                                  color: AppColors.primary,
                                   width: 2,
                                 ),
                                 color: isSelected
-                                  ? AppColors.primary
-                                  : Colors.transparent,
+                                    ? AppColors.primary
+                                    : Colors.transparent,
                               ),
                               child: isSelected
-                                ? const Icon(
-                                    Icons.check,
-                                    size: 14,
-                                    color: Colors.white,
-                                  )
-                                : null,
+                                  ? const Icon(
+                                      Icons.check,
+                                      size: 14,
+                                      color: Colors.white,
+                                    )
+                                  : null,
                             ),
                             const SizedBox(width: 16),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  // Text(
+                                  //   shift['name']!,
+                                  //   style: TextStyle(
+                                  //     fontSize: 14,
+                                  //     fontWeight: FontWeight.bold,
+                                  //     color: isSelected
+                                  //         ? AppColors.primary
+                                  //         : AppColors.textPrimary,
+                                  //   ),
+                                  // ),
+                                  // const SizedBox(height: 4),
                                   Text(
-                                    shift['name']!,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: isSelected
-                                        ? AppColors.primary
-                                        : AppColors.textPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    shift['time']!,
-                                    style: TextStyle(
+                                    "${formatTime(shift.startTime)} - ${formatTime(shift.endTime)}",
+                                    style: const TextStyle(
                                       fontSize: 12,
                                       color: AppColors.textSecondary,
-                                      fontWeight: FontWeight.w500,
+                                      fontWeight: FontWeight.w700,
+                                      fontFamily: 'Inter',
                                     ),
                                   ),
                                 ],
@@ -151,7 +171,7 @@ class _ShiftSelectionModalState extends State<ShiftSelectionModal> {
             ),
           ),
           const SizedBox(height: 20),
-          
+
           // Action Buttons
           Row(
             children: [
@@ -159,13 +179,16 @@ class _ShiftSelectionModalState extends State<ShiftSelectionModal> {
                 child: ElevatedButton(
                   onPressed: () => Navigator.pop(context),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey[300],
-                    foregroundColor: AppColors.textPrimary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
+                      backgroundColor: Colors.white,
+                      foregroundColor: AppColors.danger,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      side: const BorderSide(
+                        color: AppColors.danger,
+                        width: 2,
+                      )),
                   child: const Text(
                     'Batal',
                     style: TextStyle(
@@ -179,12 +202,12 @@ class _ShiftSelectionModalState extends State<ShiftSelectionModal> {
               Expanded(
                 child: ElevatedButton(
                   onPressed: _tempSelectedShift != null
-                    ? () => Navigator.pop(context, _tempSelectedShift)
-                    : null,
+                      ? () => Navigator.pop(context, _tempSelectedShift)
+                      : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _tempSelectedShift != null
-                      ? AppColors.primary
-                      : Colors.grey[400],
+                        ? AppColors.primary
+                        : Colors.grey[400],
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(

@@ -1,6 +1,5 @@
 import 'package:absence_excelso/constants/colors.dart';
 import 'package:absence_excelso/pages/attendance_page.dart';
-import 'package:absence_excelso/pages/welcome_page.dart';
 import 'package:absence_excelso/services/attendance_repository.dart';
 import 'package:flutter/material.dart';
 
@@ -110,7 +109,8 @@ class _ResultPageState extends State<ResultPage> {
                               Expanded(
                                 flex: 6,
                                 child: Text(
-                                  widget.attendanceRecord?.name ?? 'N/A',
+                                  widget.attendanceRecord?.employeeName ??
+                                      'N/A',
                                   style: TextStyle(
                                     fontSize: isTablet ? 20 : 14,
                                   ),
@@ -143,7 +143,75 @@ class _ResultPageState extends State<ResultPage> {
                               Expanded(
                                 flex: 6,
                                 child: Text(
-                                  widget.attendanceRecord?.nik ?? 'N/A',
+                                  widget.attendanceRecord?.employeeNumber ??
+                                      'N/A',
+                                  style: TextStyle(
+                                    fontSize: isTablet ? 20 : 14,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: Text(
+                                  "Shift",
+                                  textAlign: TextAlign.left,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: isTablet ? 20 : 14,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 1,
+                                child: Text(
+                                  ":",
+                                  textAlign: TextAlign.center,
+                                  style:
+                                      TextStyle(fontSize: isTablet ? 20 : 14),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 6,
+                                child: Text(
+                                  "${widget.attendanceRecord?.shiftStart} - ${widget.attendanceRecord?.shifEnd}",
+                                  // widget.attendanceRecord?.shiftStart ?? 'N/A',
+                                  style: TextStyle(
+                                    fontSize: isTablet ? 20 : 14,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: Text(
+                                  "Waktu Absensi",
+                                  textAlign: TextAlign.left,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: isTablet ? 20 : 14,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 1,
+                                child: Text(
+                                  ":",
+                                  textAlign: TextAlign.center,
+                                  style:
+                                      TextStyle(fontSize: isTablet ? 20 : 14),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 6,
+                                child: Text(
+                                  widget.attendanceRecord?.clockAt ?? 'N/A',
                                   style: TextStyle(
                                     fontSize: isTablet ? 20 : 14,
                                   ),
