@@ -236,9 +236,94 @@ class AttendanceRecord {
   }
 }
 
+/// Temp Attendance Identify model
+class AttendanceIdentify {
+  final String? employeeId;
+  final String? employeeNumber;
+  final String? employeeName;
+  final String? type;
+  final String? tempImagePath;
+  final String? token;
+
+  AttendanceIdentify({
+    this.employeeId,
+    this.employeeNumber,
+    this.employeeName,
+    this.type,
+    this.tempImagePath,
+    this.token,
+  });
+
+  /// Convert ke JSON untuk API
+  Map<String, dynamic> toJson() {
+    return {
+      'employeeId': employeeId,
+      'employeeName': employeeName,
+      'employeeNumber': employeeNumber,
+      'type': type,
+      'tempImagePath': tempImagePath,
+      'token': token,
+    };
+  }
+
+  /// Parse dari API response
+  factory AttendanceIdentify.fromJson(Map<String, dynamic> json) {
+    return AttendanceIdentify(
+      employeeId: json['employeeId'] as String,
+      employeeName: json['employeeName'] as String,
+      employeeNumber: json['employeeNumber'] as String,
+      type: json['type'] as String,
+      tempImagePath: json['tempImagePath'] as String,
+      token: json['token'] as String,
+    );
+  }
+}
+
 /// Attendance repository - centralize semua attendance API calls
 class AttendanceRepository {
   final ApiService _apiService = ApiService();
+
+  /// Identify user before accept attendance
+  Future<AttendanceIdentify> identify({
+    required String photoPath,
+  }) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(
+          photoPath,
+          filename: 'attendance.jpg',
+        ),
+      });
+
+      final response = await _apiService.post<AttendanceIdentify>(
+        '/attendances/identify',
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'),
+        dataParser: (json) =>
+            AttendanceIdentify.fromJson(json as Map<String, dynamic>),
+      );
+
+      debugPrint("Checkin response: ${response.toString()}");
+
+      // if (!response.success || response.data == null) {
+      if (response.data == null) {
+        throw ApiError(
+          message: response.message ?? 'Check-in failed',
+        );
+      }
+
+      // return response.message ?? 'Check-in successful'; // dummy, karena API belum siap, kita return message dulu
+      debugPrint("${response.rawData}");
+      return response.data!; // rill
+    } on ApiError {
+      rethrow;
+    } catch (e) {
+      throw ApiError(
+        message: 'Error during check-in: $e',
+        originalError: e,
+      );
+    }
+  }
 
   /// Submit attendance check-in
   Future<AttendanceRecord> checkIn({
@@ -246,7 +331,7 @@ class AttendanceRepository {
     required double latitude,
     required double longitude,
     required String type,
-    required int shiftId,
+    required int? shiftId,
     required String branchCode,
   }) async {
     try {
@@ -294,30 +379,49 @@ class AttendanceRepository {
 
   /// Submit attendance check-out
   Future<AttendanceRecord> checkOut({
-    required String attendanceId,
+    required String photoPath,
+    required double latitude,
+    required double longitude,
+    required String type,
+    required String branchCode,
   }) async {
     try {
-      final response = await _apiService.put<AttendanceRecord>(
-        '/attendance/$attendanceId/check-out',
-        data: {
-          'check_out_time': DateTime.now().toIso8601String(),
-        },
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(
+          photoPath,
+          filename: 'attendance.jpg',
+        ),
+        'latitude': latitude,
+        'longitude': longitude,
+        'type': type,
+        'branchCode': branchCode,
+      });
+
+      final response = await _apiService.post<AttendanceRecord>(
+        '/attendances',
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'),
         dataParser: (json) =>
             AttendanceRecord.fromJson(json as Map<String, dynamic>),
       );
 
-      if (!response.success || response.data == null) {
+      debugPrint("Checkin response: ${response.toString()}");
+
+      // if (!response.success || response.data == null) {
+      if (response.data == null) {
         throw ApiError(
-          message: response.message ?? 'Check-out failed',
+          message: response.message ?? 'Check-in failed',
         );
       }
 
-      return response.data!;
+      // return response.message ?? 'Check-in successful'; // dummy, karena API belum siap, kita return message dulu
+      debugPrint("${response.rawData}");
+      return response.data!; // rill
     } on ApiError {
       rethrow;
     } catch (e) {
       throw ApiError(
-        message: 'Error during check-out: $e',
+        message: 'Error during check-in: $e',
         originalError: e,
       );
     }

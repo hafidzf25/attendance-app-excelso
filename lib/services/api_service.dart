@@ -21,7 +21,9 @@ class ApiService {
   void _initializeDio() {
     _dio = Dio(
       BaseOptions(
-        baseUrl: 'https://54c1-36-92-218-18.ngrok-free.app/hr',
+        baseUrl: 'https://api-dev.excelso.co.id/hr',
+        // baseUrl: 'https://62d7-36-92-218-18.ngrok-free.app/hr',
+        // baseUrl: 'http://192.168.137.1:3000/hr',
         connectTimeout: const Duration(seconds: 15),
         receiveTimeout: const Duration(seconds: 15),
         contentType: Headers.jsonContentType,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/colors.dart';
 
 class FormButtons extends StatelessWidget {
+  final VoidCallback onEnroll;
   final VoidCallback onCheckIn;
   final VoidCallback onCheckOut;
   final bool isLoading;
@@ -10,6 +11,7 @@ class FormButtons extends StatelessWidget {
 
   const FormButtons({
     Key? key,
+    required this.onEnroll,
     required this.onCheckIn,
     required this.onCheckOut,
     this.isLoading = false,
@@ -23,7 +25,7 @@ class FormButtons extends StatelessWidget {
       children: [
         Expanded(
           child: ElevatedButton(
-            onPressed: isLoading || !isBranchExists ? null : onCheckIn,
+            onPressed: isLoading || !isBranchExists ? null : onEnroll,
             style: ElevatedButton.styleFrom(
               side: BorderSide(
                 color: isLoading || !isBranchExists
@@ -44,14 +46,14 @@ class FormButtons extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  Icons.login,
+                  Icons.app_registration_rounded,
                   color: isLoading || !isBranchExists
                       ? Colors.white
                       : const Color(0xff0C8FB0),
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Masuk',
+                  'Enroll',
                   style: TextStyle(
                     fontSize: isTablet ? 16 : 14,
                     fontWeight: FontWeight.bold,
@@ -67,7 +69,7 @@ class FormButtons extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: ElevatedButton(
-            onPressed: isLoading || !isBranchExists ? null : onCheckOut,
+            onPressed: isLoading || !isBranchExists ? null : onCheckIn,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
@@ -84,7 +86,7 @@ class FormButtons extends StatelessWidget {
                 const Icon(Icons.logout, color: Colors.white),
                 const SizedBox(width: 8),
                 Text(
-                  'Keluar',
+                  'Absen',
                   style: TextStyle(
                     fontSize: isTablet ? 16 : 14,
                     fontWeight: FontWeight.bold,

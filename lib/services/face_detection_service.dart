@@ -5,7 +5,8 @@ import 'dart:typed_data';
 import 'dart:ui';
 
 class FaceDetectionService {
-  static final FaceDetectionService _instance = FaceDetectionService._internal();
+  static final FaceDetectionService _instance =
+      FaceDetectionService._internal();
 
   factory FaceDetectionService() {
     return _instance;
@@ -17,6 +18,9 @@ class FaceDetectionService {
   bool _isInitialized = false;
 
   bool get isInitialized => _isInitialized;
+
+  Offset? _lastFaceCenter;
+  DateTime? _lastFaceTime;
 
   /// Initialize face detector
   Future<void> initialize() async {
@@ -45,6 +49,12 @@ class FaceDetectionService {
     }
 
     try {
+      final brightness = calculateBrightness(image);
+
+      if (brightness < 80 || brightness > 200) {
+        return [];
+      }
+
       // Convert CameraImage to InputImage untuk ML Kit
       final inputImage = _cameraImageToInputImage(image);
       if (inputImage == null) return [];
@@ -52,11 +62,57 @@ class FaceDetectionService {
       // Process image untuk detect faces
       final faces = await _faceDetector.processImage(inputImage);
 
-      return faces;
+      // Filter wajah palsu (refleksi/shadow) dari hasil deteksi
+      final imageWidth = image.width.toDouble();
+      final imageHeight = image.height.toDouble();
+      final filteredFaces = _filterFakeFaces(faces, imageWidth, imageHeight);
+
+      return filteredFaces;
     } catch (e) {
       debugPrint('Error detecting faces: $e');
       return [];
     }
+  }
+
+  /// Filter deteksi wajah palsu (refleksi/shadow)
+  /// Hanya retain wajah yang memiliki area signifikan, jarak dari utama > threshold, dan landmarks
+  List<Face> _filterFakeFaces(
+      List<Face> faces, double imgWidth, double imgHeight) {
+    if (faces.length <= 1) {
+      return faces;
+    }
+
+    // Sort by size descending (terbesar = asli)
+    faces.sort((a, b) {
+      final areaA = a.boundingBox.width * a.boundingBox.height;
+      final areaB = b.boundingBox.width * b.boundingBox.height;
+      return areaB.compareTo(areaA);
+    });
+
+    final largest = faces.first;
+    final largestArea = largest.boundingBox.width * largest.boundingBox.height;
+    final largestCenter = Offset(
+      largest.boundingBox.left + largest.boundingBox.width / 2,
+      largest.boundingBox.top + largest.boundingBox.height / 2,
+    );
+
+    // Retain wajah yang: area >= 40% terbesar, jarak > 120px, dan ada landmarks
+    return faces.where((face) {
+      if (face == largest) return true;
+
+      final faceArea = face.boundingBox.width * face.boundingBox.height;
+      final areaRatio = faceArea / largestArea;
+
+      final faceCenter = Offset(
+        face.boundingBox.left + face.boundingBox.width / 2,
+        face.boundingBox.top + face.boundingBox.height / 2,
+      );
+      final distance = (largestCenter - faceCenter).distance;
+
+      final hasLandmarks = face.landmarks.isNotEmpty;
+
+      return areaRatio >= 0.4 && distance > 120 && hasLandmarks;
+    }).toList();
   }
 
   /// Check apakah ada valid face (face terdeteksi dengan good quality)
@@ -80,14 +136,66 @@ class FaceDetectionService {
   Face? getBestFace(List<Face> faces) {
     if (faces.isEmpty) return null;
 
-    // Sort by bounding box area (largest first = closest to camera)
+    final imageCenterX =
+        faces.first.boundingBox.left + faces.first.boundingBox.width / 2;
+
     faces.sort((a, b) {
       final areaA = a.boundingBox.width * a.boundingBox.height;
+
       final areaB = b.boundingBox.width * b.boundingBox.height;
-      return areaB.compareTo(areaA);
+
+      final centerA = a.getFaceCenter();
+      final centerB = b.getFaceCenter();
+
+      final distA = (centerA.dx - imageCenterX).abs();
+      final distB = (centerB.dx - imageCenterX).abs();
+
+      if ((areaB - areaA).abs() > 1000) {
+        return areaB.compareTo(areaA);
+      }
+
+      return distA.compareTo(distB);
     });
 
     return faces.first;
+  }
+
+  double calculateBrightness(CameraImage image) {
+    final plane = image.planes[0];
+
+    int sum = 0;
+
+    for (int i = 0; i < plane.bytes.length; i += 20) {
+      sum += plane.bytes[i];
+    }
+
+    return sum / (plane.bytes.length / 20);
+  }
+
+  bool isFaceStable(Face face) {
+    final now = DateTime.now();
+    final center = face.getFaceCenter();
+
+    if (_lastFaceCenter == null || _lastFaceTime == null) {
+      _lastFaceCenter = center;
+      _lastFaceTime = now;
+      return false;
+    }
+
+    final dt = now.difference(_lastFaceTime!).inMilliseconds;
+    if (dt > 1200) {
+      _lastFaceCenter = center;
+      _lastFaceTime = now;
+      return false;
+    }
+
+    final dx = (center.dx - _lastFaceCenter!.dx).abs();
+    final dy = (center.dy - _lastFaceCenter!.dy).abs();
+
+    _lastFaceCenter = center;
+    _lastFaceTime = now;
+
+    return dx < 16 && dy < 16;
   }
 
   /// Convert CameraImage ke InputImage untuk ML Kit
@@ -105,7 +213,8 @@ class FaceDetectionService {
       if (inputFormat != InputImageFormat.yuv_420_888 &&
           inputFormat != InputImageFormat.nv21 &&
           inputFormat != InputImageFormat.yv12) {
-        debugPrint('Unsupported ML Kit format: $inputFormat (${image.format.raw})');
+        debugPrint(
+            'Unsupported ML Kit format: $inputFormat (${image.format.raw})');
         return null;
       }
 
@@ -208,7 +317,8 @@ extension FaceProperties on Face {
   }
 
   /// Check apakah face positioned well di center
-  bool isCentered(double screenWidth, double screenHeight, {double tolerance = 0.2}) {
+  bool isCentered(double screenWidth, double screenHeight,
+      {double tolerance = 0.2}) {
     final center = getFaceCenter();
     final screenCenter = Offset(screenWidth / 2, screenHeight / 2);
 

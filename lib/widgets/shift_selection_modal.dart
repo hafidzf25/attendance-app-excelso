@@ -62,112 +62,121 @@ class _ShiftSelectionModalState extends State<ShiftSelectionModal> {
           ),
           const SizedBox(height: 20),
 
-          // Shift List
+          // Shift List dengan gradient fade indicator
           Expanded(
-            child: ListView.builder(
-              itemCount: widget.shifts.length,
-              itemBuilder: (context, index) {
-                final shift = widget.shifts[index];
-                final shiftKey = '${shift.startTime} - ${shift.endTime}';
-                final isSelected = _tempSelectedShift == shiftKey;
+            child: Stack(
+              children: [
+                Scrollbar(
+                  child: ListView.builder(
+                    itemCount: widget.shifts.length,
+                    itemBuilder: (context, index) {
+                      final shift = widget.shifts[index];
+                      final shiftKey = '${shift.startTime} - ${shift.endTime}';
+                      final isSelected = _tempSelectedShift == shiftKey;
 
-                return Container(
-                  margin: const EdgeInsets.only(
-                      bottom: 12, left: 4, right: 4, top: 4),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color:
-                          isSelected ? AppColors.primary : Colors.transparent,
-                      width: isSelected ? 2 : 1.5,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    color: isSelected
-                        ? AppColors.primary.withOpacity(0.1)
-                        : Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 3,
-                        spreadRadius: 0,
-                        offset: const Offset(0, 1),
-                      ),
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 2,
-                        spreadRadius: 0,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () {
-                        setState(() {
-                          _tempSelectedShift = isSelected ? null : shiftKey;
-                        });
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: AppColors.primary,
-                                  width: 2,
-                                ),
-                                color: isSelected
-                                    ? AppColors.primary
-                                    : Colors.transparent,
-                              ),
-                              child: isSelected
-                                  ? const Icon(
-                                      Icons.check,
-                                      size: 14,
-                                      color: Colors.white,
-                                    )
-                                  : null,
+                      return Container(
+                        margin: const EdgeInsets.only(
+                            bottom: 12, left: 4, right: 4, top: 4),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: isSelected
+                                ? AppColors.primary
+                                : Colors.transparent,
+                            width: isSelected ? 2 : 1.5,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          color: isSelected
+                              ? AppColors.primary.withOpacity(0.1)
+                              : Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 3,
+                              spreadRadius: 0,
+                              offset: const Offset(0, 1),
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 2,
+                              spreadRadius: 0,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              setState(() {
+                                _tempSelectedShift =
+                                    isSelected ? null : shiftKey;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
                                 children: [
-                                  // Text(
-                                  //   shift['name']!,
-                                  //   style: TextStyle(
-                                  //     fontSize: 14,
-                                  //     fontWeight: FontWeight.bold,
-                                  //     color: isSelected
-                                  //         ? AppColors.primary
-                                  //         : AppColors.textPrimary,
-                                  //   ),
-                                  // ),
-                                  // const SizedBox(height: 4),
-                                  Text(
-                                    "${formatTime(shift.startTime)} - ${formatTime(shift.endTime)}",
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.textSecondary,
-                                      fontWeight: FontWeight.w700,
-                                      fontFamily: 'Inter',
+                                  Container(
+                                    width: 24,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: AppColors.primary,
+                                        width: 2,
+                                      ),
+                                      color: isSelected
+                                          ? AppColors.primary
+                                          : Colors.transparent,
+                                    ),
+                                    child: isSelected
+                                        ? const Icon(
+                                            Icons.check,
+                                            size: 14,
+                                            color: Colors.white,
+                                          )
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        // Text(
+                                        //   shift['name']!,
+                                        //   style: TextStyle(
+                                        //     fontSize: 14,
+                                        //     fontWeight: FontWeight.bold,
+                                        //     color: isSelected
+                                        //         ? AppColors.primary
+                                        //         : AppColors.textPrimary,
+                                        //   ),
+                                        // ),
+                                        // const SizedBox(height: 4),
+                                        Text(
+                                          "${formatTime(shift.startTime)} - ${formatTime(shift.endTime)}",
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.textSecondary,
+                                            fontWeight: FontWeight.w700,
+                                            fontFamily: 'Inter',
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
-                );
-              },
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 20),

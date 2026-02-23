@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../constants/colors.dart';
 
 class FormTextField extends StatelessWidget {
@@ -10,6 +11,7 @@ class FormTextField extends StatelessWidget {
   final bool isTablet;
   final int? maxLines;
   final int? minLines;
+  final Function(String) changeValue;
 
   const FormTextField({
     Key? key,
@@ -21,6 +23,7 @@ class FormTextField extends StatelessWidget {
     this.keyboardType = TextInputType.text,
     this.maxLines = 1,
     this.minLines,
+    required this.changeValue,
   }) : super(key: key);
 
   @override
@@ -43,10 +46,15 @@ class FormTextField extends StatelessWidget {
             color: AppColors.textPrimary,
             fontWeight: FontWeight.w500,
           ),
+          onChanged: changeValue,
           controller: controller,
           keyboardType: keyboardType,
           maxLines: maxLines,
+          maxLength: 8,
           minLines: minLines,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+          ],
           decoration: InputDecoration(
             hintText: hintText,
             hintStyle: TextStyle(
@@ -59,14 +67,14 @@ class FormTextField extends StatelessWidget {
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(
+              borderSide: const BorderSide(
                 color: AppColors.primary,
                 width: 1.5,
               ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(
+              borderSide: const BorderSide(
                 color: AppColors.primary,
                 width: 1.5,
               ),

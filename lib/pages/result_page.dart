@@ -4,7 +4,7 @@ import 'package:absence_excelso/services/attendance_repository.dart';
 import 'package:flutter/material.dart';
 
 class ResultPage extends StatefulWidget {
-  final AttendanceRecord? attendanceRecord;
+  final AttendanceIdentify? attendanceRecord;
   const ResultPage({this.attendanceRecord, super.key});
 
   @override
@@ -23,7 +23,7 @@ class _ResultPageState extends State<ResultPage> {
         title: Text(
           "Hasil Absensi",
           style: TextStyle(
-            fontSize: isTablet ? 24 : 20,
+            fontSize: isTablet ? 24 : 18,
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
@@ -75,7 +75,8 @@ class _ResultPageState extends State<ResultPage> {
                             ]),
                         child: Column(children: [
                           Text(
-                            widget.attendanceRecord?.branch ??
+                            ""
+                            // widget.attendanceRecord?.branch ??
                                 'Tidak diketahui',
                             textAlign: TextAlign.left,
                             style: TextStyle(
@@ -177,8 +178,8 @@ class _ResultPageState extends State<ResultPage> {
                               Expanded(
                                 flex: 6,
                                 child: Text(
-                                  "${widget.attendanceRecord?.shiftStart} - ${widget.attendanceRecord?.shifEnd}",
-                                  // widget.attendanceRecord?.shiftStart ?? 'N/A',
+                                  "",
+                                  // "${widget.attendanceRecord?.shiftStart} - ${widget.attendanceRecord?.shifEnd}",
                                   style: TextStyle(
                                     fontSize: isTablet ? 20 : 14,
                                   ),
@@ -211,7 +212,8 @@ class _ResultPageState extends State<ResultPage> {
                               Expanded(
                                 flex: 6,
                                 child: Text(
-                                  widget.attendanceRecord?.clockAt ?? 'N/A',
+                                  "",
+                                  // widget.attendanceRecord?.clockAt ?? 'N/A',
                                   style: TextStyle(
                                     fontSize: isTablet ? 20 : 14,
                                   ),

@@ -1,14 +1,13 @@
 import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart' as pm;
 
 import '../utils/image_utils.dart';
 
 class CameraService extends ChangeNotifier {
   static final CameraService _instance = CameraService._internal();
-  
+
   // Output image resolution constants
   static const int OUTPUT_WIDTH = 480;
   static const int OUTPUT_HEIGHT = 512;
@@ -23,16 +22,18 @@ class CameraService extends ChangeNotifier {
   late List<CameraDescription> _cameras;
   bool _isInitialized = false;
   String? _errorMessage;
-  bool _isDisposed = false;
 
   CameraController? get cameraController => _cameraController;
   bool get isInitialized => _isInitialized;
   String? get errorMessage => _errorMessage;
 
-  /// Safe notify listeners - check if disposed first
+  /// Safe notify listeners - jangan throw jika sudah disposed
   void _safeNotifyListeners() {
-    if (!_isDisposed) {
+    try {
       notifyListeners();
+    } catch (e) {
+      // Silently ignore jika sudah disposed atau error lain
+      debugPrint('Notify listeners error (likely disposed): $e');
     }
   }
 
@@ -47,8 +48,8 @@ class CameraService extends ChangeNotifier {
         return false;
       }
 
-      // Request storage permission untuk save photo ke Downloads (optional, tidak crash jika denied)
-      await pm.Permission.storage.request();
+      // Auto simpan ke storage publik dinonaktifkan
+      // await pm.Permission.storage.request();
 
       // Get available cameras
       _cameras = await availableCameras();
@@ -78,7 +79,7 @@ class CameraService extends ChangeNotifier {
         final preset = resolutionPresets[i];
         try {
           debugPrint('Attempting camera initialization with preset: $preset');
-          
+
           _cameraController = CameraController(
             frontCamera,
             preset,
@@ -87,17 +88,25 @@ class CameraService extends ChangeNotifier {
           );
 
           await _cameraController!.initialize();
-          
+
           // Small delay untuk ensure initialization selesai
           await Future.delayed(const Duration(milliseconds: 200));
-          
+
           // Disable flash
           try {
             await _cameraController!.setFlashMode(FlashMode.off);
+            await _cameraController!.setExposureMode(ExposureMode.auto);
+            final min = await _cameraController!.getMinExposureOffset();
+
+            final max = await _cameraController!.getMaxExposureOffset();
+
+            final optimalExposure = (max * 0.6).clamp(min, max);
+
+            await _cameraController!.setExposureOffset(optimalExposure);
           } catch (e) {
             debugPrint('Warning: Could not disable flash: $e');
           }
-          
+
           _isInitialized = true;
           _errorMessage = null;
           _safeNotifyListeners();
@@ -106,7 +115,7 @@ class CameraService extends ChangeNotifier {
         } catch (e) {
           lastError = e.toString();
           debugPrint('✗ Failed to initialize with preset $preset: $e');
-          
+
           // Dispose controller dengan proper cleanup
           try {
             await _cameraController?.dispose();
@@ -114,7 +123,7 @@ class CameraService extends ChangeNotifier {
             debugPrint('Error disposing controller: $disposeError');
           }
           _cameraController = null;
-          
+
           // Jika bukan preset terakhir, lanjut ke next preset
           if (i < resolutionPresets.length - 1) {
             await Future.delayed(const Duration(milliseconds: 500));
@@ -124,7 +133,8 @@ class CameraService extends ChangeNotifier {
       }
 
       // Jika semua preset gagal
-      _errorMessage = 'Tidak dapat menginisialisasi kamera. Device mungkin tidak kompatibel.';
+      _errorMessage =
+          'Tidak dapat menginisialisasi kamera. Device mungkin tidak kompatibel.';
       _isInitialized = false;
       _safeNotifyListeners();
       debugPrint('✗ All resolution presets failed. Last error: $lastError');
@@ -142,52 +152,59 @@ class CameraService extends ChangeNotifier {
   /// Flip image horizontal untuk normalize front camera mirror effect
   Future<String?> capturePhoto() async {
     try {
-      if (_cameraController == null || !_isInitialized) {
+      final controller = _cameraController;
+      if (controller == null ||
+          !_isInitialized ||
+          !controller.value.isInitialized) {
         _errorMessage = 'Camera belum initialized';
         return null;
       }
 
-      // Safety check - ensure image stream is stopped
-      try {
-        await _cameraController!.stopImageStream();
-      } catch (e) {
-        debugPrint('Note: Could not stop image stream (may already be stopped): $e');
+      if (controller.value.isTakingPicture) {
+        _errorMessage = 'Camera sedang mengambil foto';
+        return null;
       }
 
-      // Small delay to ensure resources are freed
-      await Future.delayed(const Duration(milliseconds: 100));
+      // Image stream sudah distop dari caller (CameraPage) sebelum capture
+      // supaya shutter lebih responsif dan tidak menambah delay.
 
       // Capture photo
-      final XFile photo = await _cameraController!.takePicture();
-      
+      final XFile photo = await controller.takePicture();
+
       // Read and process image
       final imageBytes = await photo.readAsBytes();
       if (imageBytes.isEmpty) {
         _errorMessage = 'Photo bytes empty';
         return null;
       }
-      
+
       var image = ImageUtils.decodeFromBytes(imageBytes);
-      
+
       if (image == null) {
         _errorMessage = 'Error decoding image';
         return null;
       }
-      
+
       // Flip horizontal untuk normalize front camera mirror effect
       image = ImageUtils.flipHorizontal(image);
-      
+      if (image == null) {
+        _errorMessage = 'Error flipping image';
+        return null;
+      }
+
       // Detect device orientation dari camera sensor
       // Front camera di portrait: width < height
       // Front camera di landscape: width > height
-      if (image != null) {
-        bool isLandscape = image.width > image.height;
-        if (isLandscape) {
-          // Rotate 90 derajat clockwise untuk landscape
-          image = ImageUtils.rotateClockwise(image);
+      bool isLandscape = image.width > image.height;
+      if (isLandscape) {
+        // Rotate 90 derajat clockwise untuk landscape
+        image = ImageUtils.rotateClockwise(image);
+        if (image == null) {
+          _errorMessage = 'Error rotating image';
+          return null;
         }
       }
-      
+
       // Fit & crop image ke resolusi 480x512 (no distortion)
       // - Resize width ke 480 maintaining aspect ratio
       // - Crop height ke 512 dari center/top
@@ -196,33 +213,36 @@ class CameraService extends ChangeNotifier {
         _errorMessage = 'Error processing image';
         return null;
       }
-      
-      // Get external storage (public folder, bisa diakses galeri)
-      final Directory? externalDir = await getExternalStorageDirectory();
-      if (externalDir == null) {
-        _errorMessage = 'Storage tidak tersedia';
+
+      // Auto simpan ke galeri/public folder dinonaktifkan
+      // final Directory? externalDir = await getExternalStorageDirectory();
+      // if (externalDir == null) {
+      //   _errorMessage = 'Storage tidak tersedia';
+      //   return null;
+      // }
+      // final String publicPath = externalDir.path
+      //     .replaceAll('/Android/data/${_getPackageName()}/files', '');
+      // final Directory attendanceDir = Directory('$publicPath/Pictures/Attendance');
+      // if (!await attendanceDir.exists()) {
+      //   await attendanceDir.create(recursive: true);
+      // }
+      // final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+      // final String fileName = 'attendance_$timestamp.jpg';
+      // final String filePath = '${attendanceDir.path}/$fileName';
+      // final File savedFile = File(filePath);
+      // await savedFile.writeAsBytes(ImageUtils.encodeToJpg(image));
+      // return savedFile.path;
+
+      // Tetap simpan hasil proses ke file temporary bawaan camera
+      final File tempFile = File(photo.path);
+      final encodedBytes = ImageUtils.encodeToJpg(image);
+      if (encodedBytes.isEmpty) {
+        _errorMessage = 'Error encoding image to JPG';
         return null;
       }
-      
-      // Create Attendance folder di Pictures
-      // Navigate up to /storage/emulated/0 from app-specific folder
-      final String publicPath = externalDir.path.replaceAll('/Android/data/${_getPackageName()}/files', '');
-      final Directory attendanceDir = Directory('$publicPath/Pictures/Attendance');
-      
-      if (!await attendanceDir.exists()) {
-        await attendanceDir.create(recursive: true);
-      }
-      
-      // Create filename dengan timestamp
-      final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-      final String fileName = 'attendance_$timestamp.jpg';
-      final String filePath = '${attendanceDir.path}/$fileName';
-      
-      // Save flipped image ke public folder
-      final File savedFile = File(filePath);
-      await savedFile.writeAsBytes(ImageUtils.encodeToJpg(image));
-      
-      return savedFile.path;
+
+      await tempFile.writeAsBytes(encodedBytes);
+      return tempFile.path;
     } catch (e) {
       _errorMessage = 'Error capturing photo: $e';
       _safeNotifyListeners();
@@ -230,20 +250,33 @@ class CameraService extends ChangeNotifier {
       return null;
     }
   }
-  
-  /// Helper untuk get package name
-  String _getPackageName() {
-    // Default package name, bisa juga dari context tapi kita hardcode aja
-    return 'com.example.absence_excelso';
-  }
 
-  /// Cleanup camera controller
+  /// Cleanup camera controller (tidak permanent dispose ChangeNotifier)
+  /// Agar bisa reinitialize untuk multiple camera sessions (enrollment)
+  ///
+  /// NOTE: Sengaja TIDAK call super.dispose() agar singleton tetap reusable
+  // ignore: must_call_super
   Future<void> dispose() async {
-    await _cameraController?.dispose();
+    try {
+      await _cameraController?.dispose();
+    } catch (e) {
+      debugPrint('Error disposing camera controller: $e');
+    }
     _cameraController = null;
     _isInitialized = false;
-    _isDisposed = true;
-    super.dispose();
+
+    // Notify listeners tentang perubahan state
+    try {
+      notifyListeners();
+    } catch (e) {
+      // Silently ignore
+      debugPrint('Notify listeners error: $e');
+    }
+
+    // PENTING: JANGAN call super.dispose() untuk singleton yang reusable
+    // Walaupun ada @mustCallSuper annotation, singleton harus tetap "alive"
+    // agar bisa dipakai lagi (contoh: enrollment multi-shot loop)
+    // Super.dispose() akan permanent mark ChangeNotifier sebagai disposed
   }
 
   /// Get front camera

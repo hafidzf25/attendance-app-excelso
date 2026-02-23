@@ -1,6 +1,7 @@
 import 'package:absence_excelso/constants/colors.dart';
 import 'package:absence_excelso/pages/camera_page.dart';
 import 'package:absence_excelso/models/api_error.dart';
+import 'package:absence_excelso/pages/enroll_page.dart';
 import 'package:absence_excelso/pages/result_page.dart';
 import 'package:absence_excelso/services/index.dart';
 import 'package:absence_excelso/widgets/index.dart';
@@ -22,36 +23,22 @@ class _AttendancePageState extends State<AttendancePage>
   final AttendanceRepository _attendanceRepository = AttendanceRepository();
   final LocationService _locationService = LocationService();
 
-  String _selectedOutlet = 'Outlet 1';
+  // String _selectedOutlet = 'Outlet 1';
+  String _selectedOutlet = '';
   String? _selectedShift;
   List<Branch> _branches = [];
   // final TextEditingController _nikController = TextEditingController();
 
   List<String> _outlets = [
-    'Outlet 1',
-    'Outlet 2',
-    'Outlet 3',
-    'Outlet 4',
-    'Outlet 5',
-    'Outlet 6',
-    'Outlet 7',
-    'Outlet 8',
-    'Outlet 9',
-  ];
-
-  List<Shift> _shifts = [
-    Shift(
-      id: 1,
-      ordering: 1,
-      startTime: DateTime(2026, 2, 20, 15, 30),
-      endTime: DateTime(2026, 2, 20, 18, 30),
-    ),
-    Shift(
-      id: 2,
-      ordering: 2,
-      startTime: DateTime(2026, 2, 21, 15, 30),
-      endTime: DateTime(2026, 2, 21, 18, 30),
-    ),
+    // 'Outlet 1',
+    // 'Outlet 2',
+    // 'Outlet 3',
+    // 'Outlet 4',
+    // 'Outlet 5',
+    // 'Outlet 6',
+    // 'Outlet 7',
+    // 'Outlet 8',
+    // 'Outlet 9',
   ];
 
   @override
@@ -76,7 +63,6 @@ class _AttendancePageState extends State<AttendancePage>
       // App kembali ke foreground
       debugPrint("App dibuka lagi");
       _initializePage();
-      _loadShift();
     }
     if (state == AppLifecycleState.paused) {
       debugPrint("App masuk background");
@@ -103,9 +89,6 @@ class _AttendancePageState extends State<AttendancePage>
       // Pengambilan branch terdekat dari backend
       debugPrint("3. Proses get branch");
       await _loadNearestBranches(locationOk);
-
-      debugPrint("3.1. Proses get shift");
-      await _loadShift();
 
       debugPrint("4. Branch udah oke");
       if (mounted) {
@@ -142,7 +125,11 @@ class _AttendancePageState extends State<AttendancePage>
 
     final photoPath = await Navigator.push<String>(
       context,
-      MaterialPageRoute(builder: (context) => const CameraPage()),
+      MaterialPageRoute(
+        builder: (context) => const CameraPage(
+          typeRequest: "Attendance",
+        ),
+      ),
     );
 
     if (photoPath != null && mounted) {
@@ -211,27 +198,6 @@ class _AttendancePageState extends State<AttendancePage>
     }
   }
 
-  // Ambil shift dari backend
-  Future<void> _loadShift() async {
-    try {
-      final shift = await _attendanceRepository.getShift();
-
-      if (mounted) {
-        setState(() {
-          _shifts = shift;
-          // _outlets = branches.map((b) {
-          //   final satuanMeter = b.distanceKm! * 100;
-          //   return "${b.name} (${satuanMeter.toStringAsFixed(2)} m)";
-          // }).toList();
-          // _selectedOutlet = _outlets.isNotEmpty ? _outlets[0] : 'Outlet 1';
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading shift: $e');
-      // Jika error, gunakan default outlets
-    }
-  }
-
   Future<void> _submitAttendance(String actionType, String photoPath) async {
     if (_isSubmitting) return;
 
@@ -240,51 +206,44 @@ class _AttendancePageState extends State<AttendancePage>
     });
 
     try {
-      final currentPosition = _locationService.currentPosition;
-      final latitude = currentPosition?.latitude ?? 0;
-      final longitude = currentPosition?.longitude ?? 0;
-      final type = actionType == 'Check In' ? 'in' : 'out';
-      final selectedShift = _shifts.cast<Shift?>().firstWhere(
-            (shift) =>
-                shift != null &&
-                '${shift.startTime} - ${shift.endTime}' == _selectedShift,
-            orElse: () => null,
-          );
-      final shiftId = selectedShift?.id ?? 0;
-      final selectedOutletIndex = _outlets.indexOf(_selectedOutlet);
-      final branchCode =
-          (selectedOutletIndex >= 0 && selectedOutletIndex < _branches.length)
-              ? _branches[selectedOutletIndex].code
-              : '';
+      // final currentPosition = _locationService.currentPosition;
+      // final latitude = currentPosition?.latitude ?? 0;
+      // final longitude = currentPosition?.longitude ?? 0;
+      // final type = actionType == 'Check In' ? 'in' : 'out';
+      // final selectedShift = _shifts.cast<Shift?>().firstWhere(
+      //       (shift) =>
+      //           shift != null &&
+      //           '${shift.startTime} - ${shift.endTime}' == _selectedShift,
+      //       orElse: () => null,
+      //     );
+      // final shiftId = selectedShift?.id ?? 0;
+      // final selectedOutletIndex = _outlets.indexOf(_selectedOutlet);
+      // final branchCode =
+      //     (selectedOutletIndex >= 0 && selectedOutletIndex < _branches.length)
+      //         ? _branches[selectedOutletIndex].code
+      //         : '';
 
       // final userId = _nikController.text.trim();
-      var data = AttendanceRecord();
-      if (actionType == 'Check In') {
-        data = await _attendanceRepository.checkIn(
-          photoPath: photoPath,
-          latitude: latitude,
-          longitude: longitude,
-          type: type,
-          shiftId: shiftId,
-          branchCode: branchCode,
-        );
-      } else {
-        data = await _attendanceRepository.checkIn(
-          photoPath: photoPath,
-          latitude: latitude,
-          longitude: longitude,
-          type: type,
-          shiftId: shiftId,
-          branchCode: branchCode,
-        );
-        // final today =
-        //     await _attendanceRepository.getTodayAttendance(userId: userId);
-        // if (today == null) {
-        //   _showErrorSnackbar('Belum ada data check-in hari ini');
-        //   return;
-        // }
-        // await _attendanceRepository.checkOut(attendanceId: today.id);
-      }
+      var data = AttendanceIdentify();
+      data = await _attendanceRepository.identify(photoPath: photoPath);
+      // if (actionType == 'Check In') {
+      //   data = await _attendanceRepository.checkIn(
+      //     photoPath: photoPath,
+      //     latitude: latitude,
+      //     longitude: longitude,
+      //     type: type,
+      //     shiftId: shiftId,
+      //     branchCode: branchCode,
+      //   );
+      // } else {
+      //   data = await _attendanceRepository.checkOut(
+      //     photoPath: photoPath,
+      //     latitude: latitude,
+      //     longitude: longitude,
+      //     type: type,
+      //     branchCode: branchCode,
+      //   );
+      // }
 
       _showSuccessSnackbar(actionType, photoPath);
       Navigator.pushAndRemoveUntil(context, MaterialPageRoute(
@@ -307,27 +266,27 @@ class _AttendancePageState extends State<AttendancePage>
     }
   }
 
-  void _showShiftModal(String actionType) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => ShiftSelectionModal(
-        shifts: _shifts,
-        initialShift: _selectedShift,
-        actionType: actionType,
-      ),
-    ).then((selectedShift) {
-      if (selectedShift != null) {
-        setState(() {
-          _selectedShift = selectedShift;
-        });
-        // Navigate to camera page after shift is selected
-        _navigateToCameraPage(actionType);
-      }
-    });
-  }
+  // void _showShiftModal(String actionType) {
+  //   showModalBottomSheet(
+  //     context: context,
+  //     shape: const RoundedRectangleBorder(
+  //       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+  //     ),
+  //     builder: (context) => ShiftSelectionModal(
+  //       shifts: _shifts,
+  //       initialShift: _selectedShift,
+  //       actionType: actionType,
+  //     ),
+  //   ).then((selectedShift) {
+  //     if (selectedShift != null) {
+  //       setState(() {
+  //         _selectedShift = selectedShift;
+  //       });
+  //       // Navigate to camera page after shift is selected
+  //       _navigateToCameraPage(actionType);
+  //     }
+  //   });
+  // }
 
   void _showSuccessSnackbar(String actionType, [String? photoPath]) {
     final photoInfo = photoPath != null ? ' ✓' : '';
@@ -364,12 +323,20 @@ class _AttendancePageState extends State<AttendancePage>
     );
   }
 
+  void _handleEnroll() {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) {
+        return const EnrollPage();
+      },
+    ));
+  }
+
   void _handleCheckIn() {
     // if (_nikController.text.trim().isEmpty) {
     //   _showErrorSnackbar('Silakan isi NIK terlebih dahulu');
     //   return;
     // }
-    _showShiftModal('Check In');
+    _navigateToCameraPage('Check In');
   }
 
   void _handleCheckOut() {
@@ -510,6 +477,7 @@ class _AttendancePageState extends State<AttendancePage>
                 Column(
                   children: [
                     FormButtons(
+                      onEnroll: _handleEnroll,
                       onCheckIn: _handleCheckIn,
                       onCheckOut: _handleCheckOut,
                       isLoading: _isSubmitting,
