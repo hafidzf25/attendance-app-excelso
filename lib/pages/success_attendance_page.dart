@@ -2,14 +2,14 @@ import 'package:absence_excelso/constants/colors.dart';
 import 'package:absence_excelso/pages/attendance_page.dart';
 import 'package:flutter/material.dart';
 
-class SuccessEnrollPage extends StatefulWidget {
-  const SuccessEnrollPage({super.key});
+class SuccessAttendancePage extends StatefulWidget {
+  const SuccessAttendancePage({super.key});
 
   @override
-  State<SuccessEnrollPage> createState() => _SuccessEnrollPageState();
+  State<SuccessAttendancePage> createState() => _SuccessAttendancePageState();
 }
 
-class _SuccessEnrollPageState extends State<SuccessEnrollPage> {
+class _SuccessAttendancePageState extends State<SuccessAttendancePage> {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
@@ -49,7 +49,7 @@ class _SuccessEnrollPageState extends State<SuccessEnrollPage> {
                       ),
                       const SizedBox(height: 48),
                       Text(
-                        "Enroll Berhasil",
+                        "Absensi Berhasil",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: !isTablet ? 24 : 42,

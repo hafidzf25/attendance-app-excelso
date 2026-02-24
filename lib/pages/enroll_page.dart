@@ -61,6 +61,14 @@ class _EnrollPageState extends State<EnrollPage> {
             );
           }
         } while (enrollCount < data.maxFaceEmbeddings!);
+        if (mounted && enrollCount == data.maxFaceEmbeddings!) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (context) => const SuccessEnrollPage(),
+            ),
+            (route) => false,
+          );
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

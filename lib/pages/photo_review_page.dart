@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:absence_excelso/constants/colors.dart';
 import 'package:absence_excelso/pages/attendance_page.dart';
-import 'package:absence_excelso/pages/success_enroll_page.dart';
+import 'package:absence_excelso/pages/success_attendance_page.dart';
 import 'package:absence_excelso/services/index.dart';
 import 'package:absence_excelso/widgets/index.dart';
 import 'package:flutter/material.dart';
@@ -157,13 +157,13 @@ class _PhotoReviewPageState extends State<PhotoReviewPage> {
                 // Navigate to result page after shift is selected
                 // Navigator.of(context).pushAndRemoveUntil(
                 //     MaterialPageRoute(
-                //       builder: (context) => const SuccessEnrollPage(),
+                //       builder: (context) => const SuccessAttendancePage(),
                 //     ),
                 //     (route) => false);
                 final result = await Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => SuccessEnrollPage(),
+                    builder: (context) => const SuccessAttendancePage(),
                   ),
                   (route) => false,
                 );
@@ -206,7 +206,7 @@ class _PhotoReviewPageState extends State<PhotoReviewPage> {
           final result = await Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
-              builder: (context) => const SuccessEnrollPage(),
+              builder: (context) => const SuccessAttendancePage(),
             ),
             (route) => false,
           );
@@ -232,6 +232,7 @@ class _PhotoReviewPageState extends State<PhotoReviewPage> {
           }
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
+              backgroundColor: AppColors.danger,
               content: Text(pesan),
             ),
           );
@@ -278,7 +279,7 @@ class _PhotoReviewPageState extends State<PhotoReviewPage> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       constraints: BoxConstraints(
-                        maxWidth: isTablet ? 400 : 300,
+                        maxWidth: isTablet ? 720 : 300,
                         maxHeight: isTablet ? 462 : 360,
                       ),
                       child: Column(

@@ -1,7 +1,6 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
-import 'dart:typed_data';
 import 'dart:ui';
 
 class FaceDetectionService {
@@ -172,7 +171,7 @@ class FaceDetectionService {
     return sum / (plane.bytes.length / 20);
   }
 
-  bool isFaceStable(Face face) {
+  bool isFaceStable(Face face, {double pixelThreshold = 16.0, int timeWindowMs = 1200}) {
     final now = DateTime.now();
     final center = face.getFaceCenter();
 
@@ -183,7 +182,7 @@ class FaceDetectionService {
     }
 
     final dt = now.difference(_lastFaceTime!).inMilliseconds;
-    if (dt > 1200) {
+    if (dt > timeWindowMs) {
       _lastFaceCenter = center;
       _lastFaceTime = now;
       return false;
@@ -195,7 +194,7 @@ class FaceDetectionService {
     _lastFaceCenter = center;
     _lastFaceTime = now;
 
-    return dx < 16 && dy < 16;
+    return dx < pixelThreshold && dy < pixelThreshold;
   }
 
   /// Convert CameraImage ke InputImage untuk ML Kit

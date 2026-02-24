@@ -23,10 +23,15 @@ class CameraPage extends StatefulWidget {
 }
 
 class _CameraPageState extends State<CameraPage> {
-  static const int _requiredStableFrames = 5;
-  static const int _detectionFrameInterval = 5;
-  static const int _autoCaptureMinScore = 80;
+  static const int _requiredStableFrames = 3; // Jumlah frame stabil
+  static const int _detectionFrameInterval = 3;
+  static const int _autoCaptureMinScore = 70;
   static const Duration _autoCaptureCooldown = Duration(seconds: 2);
+  
+  // Tolerance untuk handle flickering deteksi (false negative)
+  // Jika deteksi gagal, tetap anggap face ada untuk N frame ke depan sebelum reset
+  static const int _detectionMissGracePeriod = 5; // frame tolerance saat deteksi hilang
+  static const int _qualityDropGracePeriod = 5; // frame tolerance saat quality drop drastis
 
   final CameraService _cameraService = CameraService();
   final FaceDetectionService _faceDetectionService = FaceDetectionService();
@@ -48,9 +53,30 @@ class _CameraPageState extends State<CameraPage> {
   DateTime? _lastAutoCaptureTime;
   Size? _previewLayoutSize;
   Size? _frameOvalSize;
+  
+  // Tolerance state untuk handle flickering
+  int _consecutiveMissedFrames = 0; // Track berapa frame deteksi gagal
+  int _consecutiveQualityDropFrames = 0; // Track berapa frame quality rendah
+  int _lastValidQualityScore = 0; // Score valid terakhir
+  int _consecutiveUnstableFrames = 0; // Track berapa frame gerak-gerak (tidak stabil)
 
   double get _autoCaptureProgress =>
       (_stableGoodFrameCount / _requiredStableFrames).clamp(0.0, 1.0);
+
+  /// Get adaptive parameters based on device screen size
+  /// Tablet (width >= 600) mendapat params lebih relax untuk handle FPS & resolution berbeda
+  Map<String, dynamic> _getAdaptiveParameters() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth >= 600;
+    
+    return {
+      'isTablet': isTablet,
+      'stabilityThreshold': isTablet ? 32.0 : 16.0, // Pixel threshold lebih relax di tablet (dari 28 → 32)
+      'motionTimeWindow': isTablet ? 800 : 1000, // ms, shorter untuk tablet (dari 1500 → 800)
+      'qualityScoreThreshold': isTablet ? 60 : 70, // Minimum score lebih relax untuk tablet (dari 65 → 60)
+      'frameInterval': isTablet ? 3 : 3, // Same frame interval (removed differentiation, lebih konsisten)
+    };
+  }
 
   @override
   void initState() {
@@ -117,25 +143,62 @@ class _CameraPageState extends State<CameraPage> {
       final hasFaceOutsideFrame = detectedFaces.isNotEmpty && faceCount == 0;
 
       if (mounted) {
+        // Get adaptive parameters based on device
+        final adaptiveParams = _getAdaptiveParameters();
+        final stabilityThreshold = adaptiveParams['stabilityThreshold'] as double;
+        final motionTimeWindow = adaptiveParams['motionTimeWindow'] as int;
+
         int qualityScore = 0;
         String statusText = 'Wajah tidak terdeteksi';
         bool canCapture = false;
         int nextStableCount = 0;
 
-        if (hasFaceOutsideFrame) {
-          statusText = 'Posisikan wajah di dalam frame';
-        }
-
-        if (faceCount > 1) {
-          statusText = 'Terdeteksi $faceCount wajah. Hanya 1 orang!';
-          canCapture = false;
-        } else if (faceCount == 1 && hasValidFace) {
+        // ===== TOLERANCE LOGIC: Handle flickering =====
+        // Jika deteksi gagal tapi masih dalam grace period, anggap face masih ada
+        bool isDetectionValid = faceCount == 1 && hasValidFace;
+        
+        if (!isDetectionValid && _faceDetected) {
+          // Deteksi gagal tapi sebelumnya ada yang valid
+          _consecutiveMissedFrames++;
+          
+          if (_consecutiveMissedFrames <= _detectionMissGracePeriod) {
+            // Masih dalam grace period, pura-pura masih ada wajah
+            isDetectionValid = true;
+            canCapture = _faceDetected; // Gunakan state terakhir
+            qualityScore = _lastValidQualityScore;
+            statusText = 'Tahan posisi...';
+            debugPrint('⚠️ Flickering detected, using grace period frame $_consecutiveMissedFrames/$_detectionMissGracePeriod');
+          } else {
+            // Grace period habis, reset state
+            _consecutiveMissedFrames = 0;
+            _consecutiveQualityDropFrames = 0;
+          }
+        } else if (isDetectionValid) {
+          // Deteksi kembali normal, reset counter
+          _consecutiveMissedFrames = 0;
+          
           final bestFace = _faceDetectionService.getBestFace(faces);
           if (bestFace != null) {
             qualityScore = bestFace.getQualityScore(
               MediaQuery.of(context).size.width,
               MediaQuery.of(context).size.height,
             );
+            
+            // Check quality drop dengan tolerance
+            final qualityDropThreshold = (_lastValidQualityScore * 0.7).toInt();
+            if (qualityScore >= qualityDropThreshold) {
+              _consecutiveQualityDropFrames = 0;
+              _lastValidQualityScore = qualityScore;
+            } else {
+              _consecutiveQualityDropFrames++;
+              // Jika drop deras tapi masih dalam grace, gunakan score lama
+              if (_consecutiveQualityDropFrames <= _qualityDropGracePeriod) {
+                qualityScore = _lastValidQualityScore;
+                debugPrint('⚠️ Quality drop detected, using grace period frame $_consecutiveQualityDropFrames/$_qualityDropGracePeriod');
+              } else {
+                _lastValidQualityScore = qualityScore;
+              }
+            }
 
             if (qualityScore >= 80) {
               statusText = 'Sempurna!';
@@ -148,12 +211,57 @@ class _CameraPageState extends State<CameraPage> {
           }
         }
 
+        if (hasFaceOutsideFrame) {
+          statusText = 'Posisikan wajah di dalam frame';
+          _consecutiveMissedFrames = 0;
+          _consecutiveQualityDropFrames = 0;
+        }
+
+        if (faceCount > 1) {
+          statusText = 'Terdeteksi $faceCount wajah. Hanya 1 orang!';
+          canCapture = false;
+          _consecutiveMissedFrames = 0;
+          _consecutiveQualityDropFrames = 0;
+        }
+
         final bestFace = _faceDetectionService.getBestFace(faces);
+
+        // Use adaptive stability threshold based on device type
+        final isActuallyStable = bestFace != null &&
+            _faceDetectionService.isFaceStable(
+              bestFace,
+              pixelThreshold: stabilityThreshold,
+              timeWindowMs: motionTimeWindow,
+            );
+
+        // Grace period untuk stability: jika unstable tapi sebelumnya stable, tolerate beberapa frame
+        late bool isFaceStableWithGrace;
+        if (isActuallyStable) {
+          // Stabil, reset counter
+          _consecutiveUnstableFrames = 0;
+          isFaceStableWithGrace = true;
+          debugPrint('✓ Face is stable');
+        } else if (_stableGoodFrameCount > 0 && canCapture) {
+          // Unstable tapi sudah ada progress, tolerate sampai N frame
+          _consecutiveUnstableFrames++;
+          if (_consecutiveUnstableFrames <= 2) {
+            // Grace period 2 frame untuk handle sensor jitter
+            isFaceStableWithGrace = true;
+            debugPrint('⚠️ Unstable grace period frame $_consecutiveUnstableFrames/2');
+          } else {
+            // Exceeds grace, truly unstable
+            isFaceStableWithGrace = false;
+            _consecutiveUnstableFrames = 0;
+          }
+        } else {
+          // Dari awal tidak stabil
+          isFaceStableWithGrace = false;
+          _consecutiveUnstableFrames = 0;
+        }
 
         final isStableGoodFace = canCapture &&
             qualityScore >= _autoCaptureMinScore &&
-            bestFace != null &&
-            _faceDetectionService.isFaceStable(bestFace);
+            isFaceStableWithGrace;
 
         if (isStableGoodFace) {
           nextStableCount =
@@ -214,6 +322,10 @@ class _CameraPageState extends State<CameraPage> {
       if (mounted) {
         setState(() {
           _stableGoodFrameCount = 0;
+          // Reset tolerance state setelah capture
+          _consecutiveMissedFrames = 0;
+          _consecutiveQualityDropFrames = 0;
+          _consecutiveUnstableFrames = 0;
         });
       }
     }
