@@ -279,6 +279,40 @@ class AttendanceIdentify {
   }
 }
 
+/// Temp Attendance Identify model
+class EnrollData {
+  final String? employeeNumber;
+  final String? employeeName;
+  final int? faceEmbeddingCount;
+  final int? maxFaceEmbeddings;
+
+  EnrollData(
+      {this.employeeNumber,
+      this.employeeName,
+      this.faceEmbeddingCount,
+      this.maxFaceEmbeddings});
+
+  /// Convert ke JSON untuk API
+  Map<String, dynamic> toJson() {
+    return {
+      'employeeName': employeeName,
+      'employeeNumber': employeeNumber,
+      'faceEmbeddingCount': faceEmbeddingCount,
+      'maxFaceEmbeddings': maxFaceEmbeddings,
+    };
+  }
+
+  /// Parse dari API response
+  factory EnrollData.fromJson(Map<String, dynamic> json) {
+    return EnrollData(
+      employeeName: json['employeeName'] as String,
+      employeeNumber: json['employeeNumber'] as String,
+      faceEmbeddingCount: json['faceEmbeddingCount'] as int,
+      maxFaceEmbeddings: json['maxFaceEmbeddings'] as int,
+    );
+  }
+}
+
 /// Attendance repository - centralize semua attendance API calls
 class AttendanceRepository {
   final ApiService _apiService = ApiService();
@@ -325,14 +359,66 @@ class AttendanceRepository {
     }
   }
 
-  /// Submit attendance check-in
-  Future<AttendanceRecord> checkIn({
-    required String photoPath,
+  /// Confirm attendance after identify
+  Future<Map<String, dynamic>> confirmAttendance({
+    required String token,
     required double latitude,
     required double longitude,
-    required String type,
-    required int? shiftId,
+    int? shiftId,
     required String branchCode,
+    required String type,
+  }) async {
+    try {
+      Map<String, dynamic> bodyData = {};
+      if (type == 'in') {
+        bodyData = {
+          'token': token,
+          'latitude': latitude,
+          'longitude': longitude,
+          'shiftId': shiftId,
+          'branchCode': branchCode,
+        };
+      } else {
+        bodyData = {
+          'token': token,
+          'latitude': latitude,
+          'longitude': longitude,
+          'branchCode': branchCode,
+        };
+      }
+
+      final response = await _apiService.post(
+        '/attendances',
+        data: bodyData,
+        options: Options(contentType: 'application/json'),
+        dataParser: (json) => json as Map<String, dynamic>,
+      );
+
+      debugPrint("Check response: ${response.data}");
+
+      // if (!response.success || response.data == null) {
+      if (response.data == null) {
+        throw ApiError(
+          message: response.message ?? 'Confirm attendance failed',
+        );
+      }
+
+      // return response.message ?? 'Check-in successful'; // dummy, karena API belum siap, kita return message dulu
+      debugPrint("Hasil response confirm ${response.data}");
+      return response.data!; // rill
+    } on ApiError {
+      rethrow;
+    } catch (e) {
+      throw ApiError(
+        message: 'Error during confirm attendance: $e',
+        originalError: e,
+      );
+    }
+  }
+
+  Future<Map<String, dynamic>> enrollFace({
+    required String photoPath,
+    required String employeeNumber,
   }) async {
     try {
       final formData = FormData.fromMap({
@@ -340,19 +426,14 @@ class AttendanceRepository {
           photoPath,
           filename: 'attendance.jpg',
         ),
-        'latitude': latitude,
-        'longitude': longitude,
-        'type': type,
-        'shiftId': shiftId,
-        'branchCode': branchCode,
+        'employeeNumber': employeeNumber,
       });
 
-      final response = await _apiService.post<AttendanceRecord>(
-        '/attendances',
+      final response = await _apiService.post(
+        '/attendances/enroll',
         data: formData,
         options: Options(contentType: 'multipart/form-data'),
-        dataParser: (json) =>
-            AttendanceRecord.fromJson(json as Map<String, dynamic>),
+        dataParser: (json) => json as Map<String, dynamic>,
       );
 
       debugPrint("Checkin response: ${response.toString()}");
@@ -372,122 +453,6 @@ class AttendanceRepository {
     } catch (e) {
       throw ApiError(
         message: 'Error during check-in: $e',
-        originalError: e,
-      );
-    }
-  }
-
-  /// Submit attendance check-out
-  Future<AttendanceRecord> checkOut({
-    required String photoPath,
-    required double latitude,
-    required double longitude,
-    required String type,
-    required String branchCode,
-  }) async {
-    try {
-      final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(
-          photoPath,
-          filename: 'attendance.jpg',
-        ),
-        'latitude': latitude,
-        'longitude': longitude,
-        'type': type,
-        'branchCode': branchCode,
-      });
-
-      final response = await _apiService.post<AttendanceRecord>(
-        '/attendances',
-        data: formData,
-        options: Options(contentType: 'multipart/form-data'),
-        dataParser: (json) =>
-            AttendanceRecord.fromJson(json as Map<String, dynamic>),
-      );
-
-      debugPrint("Checkin response: ${response.toString()}");
-
-      // if (!response.success || response.data == null) {
-      if (response.data == null) {
-        throw ApiError(
-          message: response.message ?? 'Check-in failed',
-        );
-      }
-
-      // return response.message ?? 'Check-in successful'; // dummy, karena API belum siap, kita return message dulu
-      debugPrint("${response.rawData}");
-      return response.data!; // rill
-    } on ApiError {
-      rethrow;
-    } catch (e) {
-      throw ApiError(
-        message: 'Error during check-in: $e',
-        originalError: e,
-      );
-    }
-  }
-
-  /// Get today's attendance
-  Future<AttendanceRecord?> getTodayAttendance({
-    required String userId,
-  }) async {
-    try {
-      final response = await _apiService.get<AttendanceRecord>(
-        '/attendance/today',
-        queryParameters: {'user_id': userId},
-        dataParser: (json) =>
-            AttendanceRecord.fromJson(json as Map<String, dynamic>),
-      );
-
-      if (!response.success) {
-        debugPrint('Error: ${response.message}');
-        return null;
-      }
-
-      return response.data;
-    } on ApiError catch (e) {
-      debugPrint('Error getting today attendance: ${e.message}');
-      rethrow;
-    }
-  }
-
-  /// Get attendance history
-  Future<List<AttendanceRecord>> getAttendanceHistory({
-    required String userId,
-    required DateTime startDate,
-    required DateTime endDate,
-  }) async {
-    try {
-      final response = await _apiService.get<List<AttendanceRecord>>(
-        '/attendance/history',
-        queryParameters: {
-          'user_id': userId,
-          'start_date': startDate.toIso8601String().split('T')[0],
-          'end_date': endDate.toIso8601String().split('T')[0],
-        },
-        dataParser: (json) {
-          if (json is List) {
-            return (json as List)
-                .map((item) =>
-                    AttendanceRecord.fromJson(item as Map<String, dynamic>))
-                .toList();
-          }
-          return [];
-        },
-      );
-
-      if (!response.success || response.data == null) {
-        throw ApiError(
-          message: response.message ?? 'Failed to fetch attendance history',
-        );
-      }
-
-      return response.data!;
-    } on ApiError {
-      rethrow;
-    } catch (e) {
-      throw ApiError(
-        message: 'Error fetching attendance history: $e',
         originalError: e,
       );
     }
@@ -572,4 +537,160 @@ class AttendanceRepository {
       );
     }
   }
+
+  /// Get nearest branches within radius
+  Future<EnrollData> getEnroll({
+    required String employeeNumber,
+  }) async {
+    try {
+      final response = await _apiService.get<EnrollData>(
+        '/attendances/enroll/$employeeNumber',
+        queryParameters: {},
+        dataParser: (json) => EnrollData.fromJson(json as Map<String, dynamic>),
+      );
+
+      // if (!response.success || response.data == null) {
+      if (response.data == null) {
+        throw ApiError(
+          message: response.message ?? 'Failed to fetch data enroll employee',
+        );
+      }
+
+      // debugPrint("Shift response: ${response.toString()}");
+      return response.data!;
+    } on ApiError {
+      rethrow;
+    } catch (e) {
+      throw ApiError(
+        message: 'Error fetching data enroll employee: $e',
+        originalError: e,
+      );
+    }
+  }
+
+  // /// Submit attendance check-in
+  // Future<AttendanceRecord> checkIn({
+  //   required String photoPath,
+  //   required double latitude,
+  //   required double longitude,
+  //   required String type,
+  //   required int? shiftId,
+  //   required String branchCode,
+  // }) async {
+  //   try {
+  //     final formData = FormData.fromMap({
+  //       'file': await MultipartFile.fromFile(
+  //         photoPath,
+  //         filename: 'attendance.jpg',
+  //       ),
+  //       'latitude': latitude,
+  //       'longitude': longitude,
+  //       'type': type,
+  //       'shiftId': shiftId,
+  //       'branchCode': branchCode,
+  //     });
+
+  //     final response = await _apiService.post<AttendanceRecord>(
+  //       '/attendances',
+  //       data: formData,
+  //       options: Options(contentType: 'multipart/form-data'),
+  //       dataParser: (json) =>
+  //           AttendanceRecord.fromJson(json as Map<String, dynamic>),
+  //     );
+
+  //     debugPrint("Checkin response: ${response.toString()}");
+
+  //     // if (!response.success || response.data == null) {
+  //     if (response.data == null) {
+  //       throw ApiError(
+  //         message: response.message ?? 'Check-in failed',
+  //       );
+  //     }
+
+  //     // return response.message ?? 'Check-in successful'; // dummy, karena API belum siap, kita return message dulu
+  //     debugPrint("${response.rawData}");
+  //     return response.data!; // rill
+  //   } on ApiError {
+  //     rethrow;
+  //   } catch (e) {
+  //     throw ApiError(
+  //       message: 'Error during check-in: $e',
+  //       originalError: e,
+  //     );
+  //   }
+  // }
+
+  // /// Submit attendance check-out
+  // Future<AttendanceRecord> checkOut({
+  //   required String photoPath,
+  //   required double latitude,
+  //   required double longitude,
+  //   required String type,
+  //   required String branchCode,
+  // }) async {
+  //   try {
+  //     final formData = FormData.fromMap({
+  //       'file': await MultipartFile.fromFile(
+  //         photoPath,
+  //         filename: 'attendance.jpg',
+  //       ),
+  //       'latitude': latitude,
+  //       'longitude': longitude,
+  //       'type': type,
+  //       'branchCode': branchCode,
+  //     });
+
+  //     final response = await _apiService.post<AttendanceRecord>(
+  //       '/attendances',
+  //       data: formData,
+  //       options: Options(contentType: 'multipart/form-data'),
+  //       dataParser: (json) =>
+  //           AttendanceRecord.fromJson(json as Map<String, dynamic>),
+  //     );
+
+  //     debugPrint("Checkin response: ${response.toString()}");
+
+  //     // if (!response.success || response.data == null) {
+  //     if (response.data == null) {
+  //       throw ApiError(
+  //         message: response.message ?? 'Check-in failed',
+  //       );
+  //     }
+
+  //     // return response.message ?? 'Check-in successful'; // dummy, karena API belum siap, kita return message dulu
+  //     debugPrint("${response.rawData}");
+  //     return response.data!; // rill
+  //   } on ApiError {
+  //     rethrow;
+  //   } catch (e) {
+  //     throw ApiError(
+  //       message: 'Error during check-in: $e',
+  //       originalError: e,
+  //     );
+  //   }
+  // }
+
+  // /// Get today's attendance
+  // Future<AttendanceRecord?> getTodayAttendance({
+  //   required String userId,
+  // }) async {
+  //   try {
+  //     final response = await _apiService.get<AttendanceRecord>(
+  //       '/attendance/today',
+  //       queryParameters: {'user_id': userId},
+  //       dataParser: (json) =>
+  //           AttendanceRecord.fromJson(json as Map<String, dynamic>),
+  //     );
+
+  //     if (!response.success) {
+  //       debugPrint('Error: ${response.message}');
+  //       return null;
+  //     }
+
+  //     return response.data;
+  //   } on ApiError catch (e) {
+  //     debugPrint('Error getting today attendance: ${e.message}');
+  //     rethrow;
+  //   }
+  // }
 }

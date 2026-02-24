@@ -123,11 +123,18 @@ class _AttendancePageState extends State<AttendancePage>
       _isRefreshBranch = true;
     });
 
+    final selectedOutletIndex = _outlets.indexOf(_selectedOutlet);
+    final branchCode =
+        (selectedOutletIndex >= 0 && selectedOutletIndex < _branches.length)
+            ? _branches[selectedOutletIndex].code
+            : '';
+
     final photoPath = await Navigator.push<String>(
       context,
       MaterialPageRoute(
-        builder: (context) => const CameraPage(
+        builder: (context) => CameraPage(
           typeRequest: "Attendance",
+          branchCode: branchCode,
         ),
       ),
     );
@@ -217,11 +224,11 @@ class _AttendancePageState extends State<AttendancePage>
       //       orElse: () => null,
       //     );
       // final shiftId = selectedShift?.id ?? 0;
-      // final selectedOutletIndex = _outlets.indexOf(_selectedOutlet);
-      // final branchCode =
-      //     (selectedOutletIndex >= 0 && selectedOutletIndex < _branches.length)
-      //         ? _branches[selectedOutletIndex].code
-      //         : '';
+      final selectedOutletIndex = _outlets.indexOf(_selectedOutlet);
+      final branchCode =
+          (selectedOutletIndex >= 0 && selectedOutletIndex < _branches.length)
+              ? _branches[selectedOutletIndex].code
+              : '';
 
       // final userId = _nikController.text.trim();
       var data = AttendanceIdentify();

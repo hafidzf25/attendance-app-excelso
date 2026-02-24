@@ -51,7 +51,7 @@ class FaceDetectionService {
     try {
       final brightness = calculateBrightness(image);
 
-      if (brightness < 80 || brightness > 200) {
+      if (brightness < 40 || brightness > 230) {
         return [];
       }
 

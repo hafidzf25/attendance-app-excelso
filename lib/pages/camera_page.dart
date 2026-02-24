@@ -11,9 +11,11 @@ import 'dart:ui';
 
 class CameraPage extends StatefulWidget {
   final String? typeRequest;
+  final String? branchCode;
   const CameraPage({
     super.key,
     required this.typeRequest,
+    this.branchCode,
   });
 
   @override
@@ -229,17 +231,33 @@ class _CameraPageState extends State<CameraPage> {
     final imageWidth = image.width.toDouble();
     final imageHeight = image.height.toDouble();
 
+    // 1. Cek apakah sensor kamera landscape tapi layar portrait (umumnya rotasi 90/270 derajat)
+    final isRotated =
+        imageWidth > imageHeight && layoutSize.height > layoutSize.width;
+
+    // 2. Swap dimensi image untuk kalkulasi scale yang akurat
+    final logicalImageWidth = isRotated ? imageHeight : imageWidth;
+    final logicalImageHeight = isRotated ? imageWidth : imageHeight;
+
     final previewScale = math.max(
-      layoutSize.width / imageWidth,
-      layoutSize.height / imageHeight,
+      layoutSize.width / logicalImageWidth,
+      layoutSize.height / logicalImageHeight,
     );
 
     if (previewScale <= 0) {
       return faces;
     }
 
-    final frameRadiusXInImage = (frameOvalSize.width / 2) / previewScale;
-    final frameRadiusYInImage = (frameOvalSize.height / 2) / previewScale;
+    // 3. VITAL: Swap dimensi oval UI saat di-mapping ke raw image kamera yang "tidur"
+    final mappedOvalWidth =
+        isRotated ? frameOvalSize.height : frameOvalSize.width;
+    final mappedOvalHeight =
+        isRotated ? frameOvalSize.width : frameOvalSize.height;
+
+    final frameRadiusXInImage = (mappedOvalWidth / 2) / previewScale;
+    final frameRadiusYInImage = (mappedOvalHeight / 2) / previewScale;
+
+    // Titik tengah gambar selalu sama terlepas dari rotasi
     final frameCenterInImage = Offset(imageWidth / 2, imageHeight / 2);
 
     if (frameRadiusXInImage <= 0 || frameRadiusYInImage <= 0) {
@@ -250,10 +268,14 @@ class _CameraPageState extends State<CameraPage> {
       final center = face.getFaceCenter();
       final dx = center.dx - frameCenterInImage.dx;
       final dy = center.dy - frameCenterInImage.dy;
+
       final ellipseDistance =
           (dx * dx) / (frameRadiusXInImage * frameRadiusXInImage) +
               (dy * dy) / (frameRadiusYInImage * frameRadiusYInImage);
-      return ellipseDistance <= 1;
+
+      // Menggunakan angka 1.15 sebagai toleransi (buffer) anti-tremor
+      // agar tidak hilang-timbul saat di perbatasan garis
+      return ellipseDistance <= 1.15;
     }).toList();
   }
 
@@ -339,18 +361,20 @@ class _CameraPageState extends State<CameraPage> {
           });
           var data = AttendanceIdentify();
           data = await _attendanceRepository.identify(photoPath: photoPath);
-          setState(() {
-            _isLoadingPost = false;
-          });
           final result = await Navigator.push<String>(
             context,
             MaterialPageRoute(
               builder: (context) => PhotoReviewPage(
                 photoPath: photoPath,
                 attendanceIdentify: data,
+                branchCode: widget.branchCode,
+                typeRequest: widget.typeRequest,
               ),
             ),
           );
+          setState(() {
+            _isLoadingPost = false;
+          });
           if (result != null && mounted) {
             Navigator.pop(context, result);
           }
@@ -360,6 +384,7 @@ class _CameraPageState extends State<CameraPage> {
             MaterialPageRoute(
               builder: (context) => PhotoReviewPage(
                 photoPath: photoPath,
+                typeRequest: widget.typeRequest,
               ),
             ),
           );
@@ -386,6 +411,9 @@ class _CameraPageState extends State<CameraPage> {
             backgroundColor: AppColors.danger,
           ),
         );
+        setState(() {
+          _isLoadingPost = false;
+        });
       }
     } finally {
       _isCapturingPhoto = false;
